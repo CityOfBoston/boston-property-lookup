@@ -2,6 +2,12 @@
 # This file contains all user-facing text that can be easily modified
 
 periods:
+  # TimeChanger date range constraints
+  # Format: YYYY-MM-DD
+  # If start_date or end_date is not set, no constraint is applied
+  date_range:
+    start_date: "2025-01-01"  # Earliest date users can select
+    end_date: "2025-06-30"    # Latest date users can select
   # Timepoint labels
   timepoints:
     new_application_period_begins: "New application period begins"

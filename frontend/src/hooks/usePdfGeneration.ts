@@ -6,6 +6,7 @@ export interface UsePdfGenerationResult {
   generatePdf: () => Promise<void>;
   isLoading: boolean;
   pdfUrl: string | null;
+  pdfDownloadUrl: string | null;
   error: Error | null;
   metadata: PdfGenerationResponse['metadata'] | null;
   formSubtype: string | undefined;
@@ -30,6 +31,7 @@ export function usePdfGeneration({
 }: UsePdfGenerationProps): UsePdfGenerationResult {
   const [isLoading, setIsLoading] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfDownloadUrl, setPdfDownloadUrl] = useState<string | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const [metadata, setMetadata] = useState<PdfGenerationResponse['metadata'] | null>(null);
   const [formSubtype, setFormSubtype] = useState<string | undefined>(undefined);
@@ -38,6 +40,7 @@ export function usePdfGeneration({
     setIsLoading(true);
     setError(null);
     setPdfUrl(null);
+    setPdfDownloadUrl(null);
     setMetadata(null);
     setFormSubtype(undefined);
 
@@ -49,6 +52,7 @@ export function usePdfGeneration({
       });
 
       setPdfUrl(response.pdfUrl);
+      setPdfDownloadUrl(response.pdfDownloadUrl);
       setMetadata(response.metadata);
       setFormSubtype(response.formSubtype);
     } catch (err) {
@@ -64,6 +68,7 @@ export function usePdfGeneration({
     generatePdf,
     isLoading,
     pdfUrl,
+    pdfDownloadUrl,
     error,
     metadata,
     formSubtype,

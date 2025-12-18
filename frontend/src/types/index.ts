@@ -505,6 +505,7 @@ export interface PdfGenerationRequest {
 
 export interface PdfGenerationResponse {
   pdfUrl: string;
+  pdfDownloadUrl: string;
   formType: string;
   formSubtype?: string;
   metadata: {

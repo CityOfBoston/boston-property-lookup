@@ -28,6 +28,10 @@ export interface StructuredDescription {
 // Type definitions for the YAML structure
 interface PeriodsLanguage {
   periods: {
+    date_range?: {
+      start_date?: string;
+      end_date?: string;
+    };
     timepoints: Record<string, string>;
     abatement_phases: Record<string, string>;
     exemption_phases: Record<string, string>;
@@ -120,4 +124,34 @@ export const getPersonalExemptionLink = (key: string) => getLanguageStringRaw(`p
 export const getPersonalExemptionLabel = (key: string) => getLanguageStringRaw(`periods.personal_exemption_links.${key}_label`);
 export const getAbatementMessage = (key: string) => getLanguageStringRaw(`periods.abatements.${key}`);
 export const getOverviewMessage = (key: string) => getLanguageStringRaw(`periods.overview.${key}`);
-export const getCommonValue = (key: string) => getLanguageStringRaw(`periods.common.${key}`); 
+export const getCommonValue = (key: string) => getLanguageStringRaw(`periods.common.${key}`);
+
+/**
+ * Get the date range constraints for the TimeChanger
+ * Returns null if no constraint is set
+ */
+export const getDateRangeConstraints = (): { startDate: Date | null; endDate: Date | null } => {
+  const startDateStr = languageData.periods.date_range?.start_date;
+  const endDateStr = languageData.periods.date_range?.end_date;
+  
+  const startDate = startDateStr ? parseYamlDate(startDateStr) : null;
+  const endDate = endDateStr ? parseYamlDate(endDateStr) : null;
+  
+  return { startDate, endDate };
+};
+
+/**
+ * Parse a date string from YAML (YYYY-MM-DD format)
+ */
+function parseYamlDate(dateStr: string): Date | null {
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  
+  const [, year, month, day] = match;
+  const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+  
+  // Validate the date is valid
+  if (isNaN(date.getTime())) return null;
+  
+  return date;
+} 

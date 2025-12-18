@@ -258,3 +258,50 @@ export const getPdfUrl = async (parcelId: string, formType: string, fiscalYear: 
   console.log(`[StorageClient] Generated signed URL for cached PDF ${filename}`);
   return signedUrl;
 };
+
+/**
+ * Get a download URL for a PDF with attachment disposition.
+ *
+ * @param parcelId The parcel ID for the PDF.
+ * @param formType The form type.
+ * @param fiscalYear The fiscal year for the PDF.
+ * @param fileName The name to use for the downloaded file.
+ * @return The signed download URL for the PDF.
+ */
+export const getPdfDownloadUrl = async (
+  parcelId: string,
+  formType: string,
+  fiscalYear: number,
+  fileName: string
+): Promise<string> => {
+  const filename = `generated-pdfs/${fiscalYear}/${parcelId}/${formType}.pdf`;
+  const file = pdfCacheBucket.file(filename);
+
+  const [signedUrl] = await file.getSignedUrl({
+    action: "read",
+    expires: Date.now() + 60 * 60 * 1000, // 1 hour from now
+    responseDisposition: `attachment; filename="${fileName}"`,
+    responseType: "application/pdf",
+  });
+
+  console.log(`[StorageClient] Generated download URL for PDF ${filename}`);
+  return signedUrl;
+};
+
+/**
+ * Get the PDF buffer from cache for direct download.
+ *
+ * @param parcelId The parcel ID for the PDF.
+ * @param formType The form type.
+ * @param fiscalYear The fiscal year for the PDF.
+ * @return The PDF file as a Buffer.
+ */
+export const getPdfBuffer = async (parcelId: string, formType: string, fiscalYear: number): Promise<Buffer> => {
+  const filename = `generated-pdfs/${fiscalYear}/${parcelId}/${formType}.pdf`;
+  const file = pdfCacheBucket.file(filename);
+
+  const [buffer] = await file.download();
+  console.log(`[StorageClient] Retrieved PDF buffer from ${filename} (${buffer.length} bytes)`);
+  
+  return buffer;
+};

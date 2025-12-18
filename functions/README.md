@@ -93,6 +93,7 @@ Callable functions can be invoked directly from the client SDK with automatic au
 | `fetchPropertySummariesByParcelIds` | Fetch property summaries for multiple parcels |
 | `getCurrentParcelIdAddressPairings` | Get compressed parcel ID/address pairings for search |
 | `storePropertyFeedback` | Store user feedback about properties |
+| `generatePdf` | Generate pre-filled PDF forms for property tax applications |
 
 ### HTTPS Functions
 HTTP endpoints that can be called via standard HTTP requests.
@@ -100,6 +101,7 @@ HTTP endpoints that can be called via standard HTTP requests.
 | Function | Description |
 |----------|-------------|
 | `generateAndStoreParcelIdAddressPairings` | Generate and store compressed search data |
+| `downloadPdf` | Generate and download pre-filled PDF forms via direct HTTP GET |
 
 ### Scheduled Functions
 Functions that run on a schedule using Cloud Scheduler.
@@ -117,16 +119,24 @@ functions/
 │   │   ├── FetchPropertyDetailsByParcelId.ts
 │   │   ├── FetchPropertySummariesByParcelIds.ts
 │   │   ├── GetCurrentParcelIdAddressPairings.ts
+│   │   ├── GeneratePdf.ts
 │   │   └── StorePropertyFeedback.ts
 │   ├── https/                       # HTTP endpoint functions
-│   │   └── GenerateAndStoreParcelIdAddressPairings.ts
+│   │   ├── GenerateAndStoreParcelIdAddressPairings.ts
+│   │   └── DownloadPdf.ts
 │   ├── scheduler/                   # Scheduled functions
 │   │   └── RunYearlyParcelIdAddressPairingsUpdate.ts
 │   ├── lib/                         # Shared library modules
+│   │   ├── BarcodeGenerator.ts     # Barcode generation for PDFs
 │   │   ├── EGISClient.ts           # EGIS API client
 │   │   ├── FirestoreClient.ts      # Firestore operations
 │   │   ├── FunctionsClient.ts      # Function utilities
+│   │   ├── PdfFieldMapper.ts       # PDF field mapping
+│   │   ├── PdfGenerator.ts         # PDF generation
+│   │   ├── SequenceClient.ts       # Sequence number generation
 │   │   └── StorageClient.ts        # Cloud Storage operations
+│   ├── assets/
+│   │   └── forms/                  # PDF form templates
 │   ├── types/
 │   │   └── index.ts                # TypeScript type definitions
 │   ├── data-boston-key.json        # API key reference
@@ -275,6 +285,53 @@ Stores user feedback about properties or the site.
 
 ---
 
+### `generatePdf`
+
+Generates pre-filled PDF forms for property tax applications (residential exemption, personal exemption, or abatement).
+
+**Request:**
+```typescript
+{
+  parcelId: string;              // Required: Property parcel ID
+  formType: 'residential' | 'personal' | 'abatement';  // Required
+  date?: string;                 // Optional: Date in YYYY-MM-DD format (defaults to current date)
+}
+```
+
+**Response:**
+```typescript
+{
+  status: "success" | "error";
+  message: string;
+  data?: {
+    pdfUrl: string;              // URL to view PDF inline
+    pdfDownloadUrl: string;      // URL to download PDF
+    formType: string;
+    formSubtype?: 'short' | 'long';  // For abatement forms
+    metadata: {
+      parcelId: string;
+      fiscalYear: number;
+      cached: boolean;
+    };
+  };
+}
+```
+
+**Features:**
+- Auto-fills form fields with property data
+- Generates unique application numbers for abatements
+- Determines abatement form type (short/long) based on property type
+- Caches generated PDFs for reuse
+- Adds barcodes for tracking
+- Uses current fiscal year based on date
+
+**Security:**
+- Validates parcel ID format
+- Validates form type
+- Rate limiting applied
+
+---
+
 ### `generateAndStoreParcelIdAddressPairings` (HTTPS)
 
 Generates and stores compressed parcel ID/address pairings for search functionality.
@@ -285,6 +342,47 @@ Generates and stores compressed parcel ID/address pairings for search functional
 - Compresses data with pako
 - Stores in Firestore
 - Called by scheduler or manually
+
+---
+
+### `downloadPdf` (HTTPS)
+
+Generates and downloads pre-filled PDF forms via HTTP GET request. Similar to `generatePdf` but uses query parameters and triggers a direct download.
+
+**URL Format:**
+```
+GET /downloadPdf?parcel_id=<PARCEL_ID>&form_type=<FORM_TYPE>
+```
+
+**Query Parameters:**
+- `parcel_id` (required): Property parcel ID
+- `form_type` (required): One of `residential`, `personal`, or `abatement`
+
+**Response:**
+- Returns PDF file directly with `Content-Disposition: attachment`
+- Filename format: `{formType}-form-{parcelId}.pdf`
+- Content-Type: `application/pdf`
+
+**Features:**
+- Uses current date automatically (no date parameter)
+- Same PDF generation logic as `generatePdf`
+- Returns PDF buffer directly instead of JSON
+- Triggers browser download
+- Public endpoint (no authentication required)
+- Caches generated PDFs
+
+**Example Usage:**
+```bash
+# Direct link in browser or curl
+curl "https://your-project.cloudfunctions.net/downloadPdf?parcel_id=1234567890&form_type=residential" \
+  --output residential-form.pdf
+```
+
+**Error Responses:**
+- 400: Invalid or missing query parameters
+- 404: Property not found
+- 405: Method not allowed (only GET supported)
+- 500: PDF generation failed
 
 ## Library Modules
 

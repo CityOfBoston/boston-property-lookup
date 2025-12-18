@@ -51,6 +51,7 @@ export default function PdfGenerationPage() {
     generatePdf,
     isLoading: isGenerating,
     pdfUrl,
+    pdfDownloadUrl,
     error: pdfError,
   } = usePdfGeneration({
     parcelId: parcelId || '',
@@ -108,7 +109,7 @@ export default function PdfGenerationPage() {
           />
         )}
 
-        {!error && pdfUrl && (
+        {!error && pdfUrl && pdfDownloadUrl && (
           <div className={styles.pdfViewerSection}>
             <div className={styles.pdfHeader}>
               <h2 className={styles.pdfTitle}>YOUR FORM IS READY</h2>
@@ -118,6 +119,7 @@ export default function PdfGenerationPage() {
             </div>
             <PdfReviewer
               pdfUrl={pdfUrl}
+              pdfDownloadUrl={pdfDownloadUrl}
               fileName={`${formType}-form-${parcelId}.pdf`}
               onBack={() => navigate(`/details?parcelId=${parcelId}`)}
               backLabel="Back to Property Details"

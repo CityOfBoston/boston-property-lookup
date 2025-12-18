@@ -121,6 +121,7 @@ export class PropertyDetails implements PropertyDetailsData {
       bedroomNumber?: string;
       totalBathrooms?: string;
       halfBathrooms?: string;
+      otherFixtures?: string;
       bathStyle1?: string;
       bathStyle2?: string;
       bathStyle3?: string;
@@ -132,6 +133,10 @@ export class PropertyDetails implements PropertyDetailsData {
       yearBuilt?: string;
       exteriorFinish?: string;
       exteriorCondition?: string;
+      interiorCondition?: string;
+      interiorFinish?: string;
+      view?: string;
+      grade?: string;
       roofCover?: string;
       roofStructure?: string;
       foundation?: string;
@@ -163,8 +168,11 @@ export class PropertyDetails implements PropertyDetailsData {
     penthouseUnit?: string;
     orientation?: string;
     bedroomNumber?: string;
+    bedroomType?: string; // Condo only
+    rooms?: string; // Condo only - total room count
     totalBathrooms?: string;
     halfBathrooms?: string;
+    otherFixtures?: string;
     bathStyle1?: string;
     bathStyle2?: string;
     bathStyle3?: string;
@@ -183,17 +191,31 @@ export class PropertyDetails implements PropertyDetailsData {
     heatType?: string;
     acType?: string;
     fireplaces?: string;
+    interiorCondition?: string;
+    interiorFinish?: string;
+    view?: string;
+    cornerUnit?: string; // Condo only
+    parkingOwnership?: string; // Condo only
+    parkingType?: string; // Condo only
+    tandemParking?: string; // Condo only
     salePrice?: string;
     saleDate?: string;
     registryBookAndPlace?: string;
 
     // Property Taxes fields
+    billNumber?: string;
+    billYear?: number;
+    totalAssessedValue?: number;
     propertyGrossTax: number;
     residentialExemptionAmount: number;
+    residentialExemptionValue?: number;
     personalExemptionAmount: number;
-    communityPreservationAmount: number;
+    personalExemptionType1?: string;
     personalExemptionAmount1: number;
+    personalExemptionType2?: string;
     personalExemptionAmount2: number;
+    communityPreservationAmount: number;
+    netRealEstateTax?: number;
     estimatedTotalFirstHalf: number;
     totalBilledAmount: number;
   }) {
@@ -270,6 +292,8 @@ export class PropertyDetails implements PropertyDetailsData {
                 {label: "Floor", value: building.floor},
                 {label: "Penthouse Unit", value: building.penthouseUnit},
                 {label: "Orientation", value: building.orientation},
+                {label: "View", value: building.view},
+                {label: "Grade", value: building.grade},
               ].filter((field) => field.value),
             },
             {
@@ -278,6 +302,7 @@ export class PropertyDetails implements PropertyDetailsData {
                 {label: "Number of Bedrooms", value: building.bedroomNumber},
                 {label: "Total Bathrooms", value: building.totalBathrooms},
                 {label: "Half Bathrooms", value: building.halfBathrooms},
+                {label: "Other Fixtures", value: building.otherFixtures},
                 {label: "Bath Style 1", value: building.bathStyle1},
                 {label: "Bath Style 2", value: building.bathStyle2},
                 {label: "Bath Style 3", value: building.bathStyle3},
@@ -289,11 +314,13 @@ export class PropertyDetails implements PropertyDetailsData {
               ].filter((field) => field.value),
             },
             {
-              title: "Construction",
+              title: "Construction & Condition",
               content: [
                 {label: "Year Built", value: building.yearBuilt},
                 {label: "Exterior Finish", value: building.exteriorFinish},
                 {label: "Exterior Condition", value: building.exteriorCondition},
+                {label: "Interior Finish", value: building.interiorFinish},
+                {label: "Interior Condition", value: building.interiorCondition},
                 {label: "Roof Cover", value: building.roofCover},
                 {label: "Roof Structure", value: building.roofStructure},
                 {label: "Foundation", value: building.foundation},
@@ -338,14 +365,19 @@ export class PropertyDetails implements PropertyDetailsData {
                 {label: "Floor", value: data.floor},
                 {label: "Penthouse Unit", value: data.penthouseUnit},
                 {label: "Orientation", value: data.orientation},
+                {label: "Corner Unit", value: data.cornerUnit},
+                {label: "View", value: data.view},
               ],
             },
             {
               title: "Rooms",
               content: [
+                {label: "Total Rooms", value: data.rooms},
                 {label: "Number of Bedrooms", value: data.bedroomNumber},
+                {label: "Bedroom Type", value: data.bedroomType},
                 {label: "Total Bathrooms", value: data.totalBathrooms},
                 {label: "Half Bathrooms", value: data.halfBathrooms},
+                {label: "Other Fixtures", value: data.otherFixtures},
                 {label: "Bath Style 1", value: data.bathStyle1},
                 {label: "Bath Style 2", value: data.bathStyle2},
                 {label: "Bath Style 3", value: data.bathStyle3},
@@ -357,10 +389,20 @@ export class PropertyDetails implements PropertyDetailsData {
               ],
             },
             {
-              title: "Construction",
+              title: "Construction & Condition",
               content: [
                 {label: "Year Built", value: data.yearBuilt},
+                {label: "Interior Finish", value: data.interiorFinish},
+                {label: "Interior Condition", value: data.interiorCondition},
+              ],
+            },
+            {
+              title: "Parking",
+              content: [
                 {label: "Parking Spots", value: data.parkingSpots},
+                {label: "Parking Ownership", value: data.parkingOwnership},
+                {label: "Parking Type", value: data.parkingType},
+                {label: "Tandem Parking", value: data.tandemParking},
               ],
             },
             {
@@ -387,6 +429,8 @@ export class PropertyDetails implements PropertyDetailsData {
             {label: "Floor", value: data.floor},
             {label: "Penthouse Unit", value: data.penthouseUnit},
             {label: "Orientation", value: data.orientation},
+            {label: "View", value: data.view},
+            {label: "Grade", value: data.grade},
           ],
         },
         {
@@ -395,6 +439,7 @@ export class PropertyDetails implements PropertyDetailsData {
             {label: "Number of Bedrooms", value: data.bedroomNumber},
             {label: "Total Bathrooms", value: data.totalBathrooms},
             {label: "Half Bathrooms", value: data.halfBathrooms},
+            {label: "Other Fixtures", value: data.otherFixtures},
             {label: "Bath Style 1", value: data.bathStyle1},
             {label: "Bath Style 2", value: data.bathStyle2},
             {label: "Bath Style 3", value: data.bathStyle3},
@@ -406,11 +451,13 @@ export class PropertyDetails implements PropertyDetailsData {
           ],
         },
         {
-          title: "Construction",
+          title: "Construction & Condition",
           content: [
             {label: "Year Built", value: data.yearBuilt},
             {label: "Exterior Finish", value: data.exteriorFinish},
             {label: "Exterior Condition", value: data.exteriorCondition},
+            {label: "Interior Finish", value: data.interiorFinish},
+            {label: "Interior Condition", value: data.interiorCondition},
             {label: "Roof Cover", value: data.roofCover},
             {label: "Roof Structure", value: data.roofStructure},
             {label: "Foundation", value: data.foundation},
@@ -529,6 +576,7 @@ export interface PdfGenerationRequest {
  */
 export interface PdfGenerationResponse {
   pdfUrl: string;
+  pdfDownloadUrl: string;
   formType: string;
   formSubtype?: string;
   metadata: {

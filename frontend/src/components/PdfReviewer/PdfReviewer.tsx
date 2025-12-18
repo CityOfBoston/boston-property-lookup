@@ -4,6 +4,7 @@ import styles from './PdfReviewer.module.scss';
 
 export interface PdfReviewerProps {
   pdfUrl: string;
+  pdfDownloadUrl?: string;
   fileName?: string;
   onPrint?: () => void;
   onDownload?: () => void;
@@ -18,6 +19,7 @@ export interface PdfReviewerProps {
  */
 export default function PdfReviewer({
   pdfUrl,
+  pdfDownloadUrl,
   fileName = 'form.pdf',
   onPrint,
   onDownload,
@@ -37,24 +39,29 @@ export default function PdfReviewer({
   };
 
   const handleDownload = () => {
-    // Firebase Storage signed URLs already have download headers configured
-    // We can trigger download directly without fetching
-    const link = document.createElement('a');
-    link.style.display = 'none';
-    link.href = pdfUrl;
-    link.download = fileName;
-    link.setAttribute('target', '_blank');
-    link.setAttribute('rel', 'noopener noreferrer');
-    
-    document.body.appendChild(link);
-    link.click();
-    
-    // Clean up
-    setTimeout(() => {
-      document.body.removeChild(link);
-    }, 100);
-    
-    onDownload?.();
+    // Use the dedicated download URL if available (has attachment disposition)
+    // Otherwise fall back to fetching and creating a blob URL
+    if (pdfDownloadUrl) {
+      // Direct download using signed URL with attachment disposition
+      const link = document.createElement('a');
+      link.style.display = 'none';
+      link.href = pdfDownloadUrl;
+      // The filename is already set in the Content-Disposition header by the backend
+      
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(link);
+      }, 100);
+      
+      onDownload?.();
+    } else {
+      // Fallback: open in new tab
+      console.warn('No download URL available, opening in new tab');
+      window.open(pdfUrl, '_blank');
+    }
   };
 
   return (

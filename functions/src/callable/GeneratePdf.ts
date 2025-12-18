@@ -5,7 +5,7 @@
 
 import {createCallable, createSuccessResponse, createErrorResponse} from "../lib/FunctionsClient";
 import {fetchPropertyDetailsByParcelIdHelper, getFiscalYearAndQuarter} from "../lib/EGISClient";
-import {isPdfCached, storePdf, getPdfUrl} from "../lib/StorageClient";
+import {isPdfCached, storePdf, getPdfUrl, getPdfDownloadUrl} from "../lib/StorageClient";
 import {getNextAbatementSequenceNumber} from "../lib/SequenceClient";
 import {generateBarcodeForForm} from "../lib/BarcodeGenerator";
 import {loadFieldConfig, mapPropertyDataToFields, getPdfPath} from "../lib/PdfFieldMapper";
@@ -155,9 +155,12 @@ export const generatePdf = createCallable(async (data: PdfGenerationRequest) => 
     if (cached) {
       console.log("[GeneratePdf] PDF found in cache");
       const pdfUrl = await getPdfUrl(data.parcelId, specificFormType, fiscalYear);
+      const fileName = `${specificFormType}-form-${data.parcelId}.pdf`;
+      const pdfDownloadUrl = await getPdfDownloadUrl(data.parcelId, specificFormType, fiscalYear, fileName);
 
       return createSuccessResponse({
         pdfUrl,
+        pdfDownloadUrl,
         formType: data.formType,
         formSubtype: specificFormType.includes("abatement") ? specificFormType.split("_")[1] : undefined,
         metadata: {
@@ -228,11 +231,16 @@ export const generatePdf = createCallable(async (data: PdfGenerationRequest) => 
     // Store in cache
     console.log("[GeneratePdf] Storing PDF in cache...");
     const pdfUrl = await storePdf(data.parcelId, specificFormType, fiscalYear, filledPdfBuffer);
+    
+    // Generate download URL with attachment disposition
+    const fileName = `${specificFormType}-form-${data.parcelId}.pdf`;
+    const pdfDownloadUrl = await getPdfDownloadUrl(data.parcelId, specificFormType, fiscalYear, fileName);
 
     console.log("[GeneratePdf] PDF generation completed successfully");
 
     return createSuccessResponse({
       pdfUrl,
+      pdfDownloadUrl,
       formType: data.formType,
       formSubtype: specificFormType.includes("abatement") ? specificFormType.split("_")[1] : undefined,
       metadata: {

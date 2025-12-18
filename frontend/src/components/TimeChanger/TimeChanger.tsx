@@ -2,6 +2,7 @@ import React, { useMemo, useState, useRef, useLayoutEffect, useEffect } from 're
 import styles from './TimeChanger.module.scss';
 import { useDateContext } from '@src/hooks/useDateContext';
 import { getAllTimepoints } from '@src/utils/periods';
+import { getDateRangeConstraints } from '@src/utils/periodsLanguage';
 import Timeline from '@src/components/Timeline';
 
 
@@ -27,8 +28,25 @@ const TimeChanger: React.FC<TimeChangerProps> = () => {
     const tps = getAllTimepoints(year);
     return [...tps].sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [year]);
-  const minDay = 1;
-  const maxDay = getDayOfYear(new Date(year, 11, 31));
+  
+  // Get date range constraints from YAML
+  const { startDate, endDate } = useMemo(() => getDateRangeConstraints(), []);
+  
+  // Calculate min/max days based on constraints
+  const minDay = useMemo(() => {
+    if (startDate && startDate.getFullYear() === year) {
+      return getDayOfYear(startDate);
+    }
+    return 1;
+  }, [startDate, year]);
+  
+  const maxDay = useMemo(() => {
+    if (endDate && endDate.getFullYear() === year) {
+      return getDayOfYear(endDate);
+    }
+    return getDayOfYear(new Date(year, 11, 31));
+  }, [endDate, year]);
+  
   const selectedDay = getDayOfYear(selectedDate);
 
   // Local state for pending slider value
@@ -43,6 +61,16 @@ const TimeChanger: React.FC<TimeChangerProps> = () => {
   const timelineRef = useRef<HTMLDivElement>(null);
   const [timelineWidth, setTimelineWidth] = useState(0);
   const [timelineHeight, setTimelineHeight] = useState(0);
+
+  // Effect to redirect to start date if current date is outside the range
+  useEffect(() => {
+    const isOutsideRange = (startDate && selectedDate < startDate) || (endDate && selectedDate > endDate);
+    
+    if (isOutsideRange && startDate) {
+      // If date is outside the valid range, redirect to start date
+      setDate(startDate);
+    }
+  }, [selectedDate, startDate, endDate, setDate]);
 
   useLayoutEffect(() => {
     if (!expanded) return;
@@ -78,16 +106,23 @@ const TimeChanger: React.FC<TimeChangerProps> = () => {
   const handleDateInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     if (val) {
-      const parsedDate = parseDate(val);
+      let parsedDate = parseDate(val);
+      
       // Only allow 2025 dates
-      if (parsedDate.getFullYear() === 2025) {
-        setDate(parsedDate);
-      } else {
+      if (parsedDate.getFullYear() !== 2025) {
         // If not 2025, reset to today's date in 2025
         const today = new Date();
         const todayIn2025 = new Date(2025, today.getMonth(), today.getDate());
-        setDate(todayIn2025);
+        parsedDate = todayIn2025;
       }
+      
+      // If outside date range constraints, redirect to start date
+      const isOutsideRange = (startDate && parsedDate < startDate) || (endDate && parsedDate > endDate);
+      if (isOutsideRange && startDate) {
+        parsedDate = startDate;
+      }
+      
+      setDate(parsedDate);
     } else {
       resetDate();
     }
@@ -97,7 +132,14 @@ const TimeChanger: React.FC<TimeChangerProps> = () => {
   const handleReset = () => {
     // Reset to today's date in 2025
     const today = new Date();
-    const todayIn2025 = new Date(2025, today.getMonth(), today.getDate());
+    let todayIn2025 = new Date(2025, today.getMonth(), today.getDate());
+    
+    // If today is outside the date range constraints, redirect to start date
+    const isOutsideRange = (startDate && todayIn2025 < startDate) || (endDate && todayIn2025 > endDate);
+    if (isOutsideRange && startDate) {
+      todayIn2025 = startDate;
+    }
+    
     setDate(todayIn2025);
     setPendingDay(null);
     setExpanded(false); // Auto-collapse after reset
@@ -144,6 +186,10 @@ const TimeChanger: React.FC<TimeChangerProps> = () => {
     }
   }, [flash]);
 
+  // Calculate min/max for date input fields
+  const minDateStr = startDate ? formatDate(startDate) : "2025-01-01";
+  const maxDateStr = endDate ? formatDate(endDate) : "2025-12-31";
+
   // Expanded view: full timeline
   if (!expanded) {
     return (
@@ -153,8 +199,8 @@ const TimeChanger: React.FC<TimeChangerProps> = () => {
             type="date"
             value={formatDate(effectiveDate)}
             onChange={handleDateInput}
-            min="2025-01-01"
-            max="2025-12-31"
+            min={minDateStr}
+            max={maxDateStr}
             className={styles.dateInput + (flash ? ' ' + styles.flash : '')}
             aria-label="Custom date"
           />
@@ -218,8 +264,8 @@ const TimeChanger: React.FC<TimeChangerProps> = () => {
           type="date"
           value={formatDate(effectiveDate)}
           onChange={handleDateInput}
-          min="2025-01-01"
-          max="2025-12-31"
+          min={minDateStr}
+          max={maxDateStr}
           className={styles.dateInput + (flash ? ' ' + styles.flash : '')}
           aria-label="Custom date"
         />

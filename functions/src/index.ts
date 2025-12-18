@@ -22,6 +22,7 @@ import {generatePdf} from "./callable/GeneratePdf";
 
 // HTTP functions
 import {generateAndStoreParcelIdAddressPairings} from "./https/GenerateAndStoreParcelIdAddressPairings";
+import {downloadPdf} from "./https/DownloadPdf";
 
 // Scheduler functions
 import {runYearlyParcelIdAddressPairingsUpdate} from "./scheduler/RunYearlyParcelIdAddressPairingsUpdate";
@@ -33,5 +34,6 @@ export {
   getCurrentParcelIdAddressPairings,
   generatePdf,
   generateAndStoreParcelIdAddressPairings,
+  downloadPdf,
   runYearlyParcelIdAddressPairingsUpdate,
 };
