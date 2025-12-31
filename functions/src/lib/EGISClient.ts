@@ -45,11 +45,16 @@ const geomertricDataLayerUrl = `${baseUrl}/0`;
  * - Layer 13: Real Estate (fiscal_year)
  * 
  * Layers with different year field name (NO quarter):
- * - Layer 12: Taxes (bill_year)
+ * - Layer 12: Taxes (bill_year) - Third Quarter (Q3) data only
+ * - Layer 14: Preliminary Taxes (bill_year) - First Quarter (Q1) data only
  * 
  * Layers with NO temporal fields:
  * - Layer 0: Geometry (static/current data)
  * - Layer 11: Sales (uses dates: latest_sales_date)
+ * 
+ * Tax Data Layer Selection Logic:
+ * - Q1 (July 1 - December 31): Use Layer 14 (Preliminary Taxes) with estimated values
+ * - Q3 (January 1 - June 30): Use Layer 12 (Taxes) with actual tax bill data
  */
 
 /**
@@ -96,11 +101,11 @@ const outbuildingsDataLayerUrl = `${baseUrl}/10`;
  */
 const salesDataLayerUrl = `${baseUrl}/11`;
 /**
- * EGIS Schema Layer 12: Taxes
+ * EGIS Schema Layer 12: Taxes (Third Quarter - Q3)
  * parcel_id,bill_year,bill_number,total_assessed_value,gross_re_tax,resex_amt,
  * resex_value,net_re_tax,personal_ex_type_1,personal_ex_amt_1,
  * personal_ex_type_2,personal_ex_amt_2,cpa_tax,personal_exemption_flag,
- * persexempt_total,net_tax,total_billed_amt
+ * persexempt_total,net_tax,total_billed_amt,residential_exemption_flag
  */
 const taxesDataLayerUrl = `${baseUrl}/12`;
 /**
@@ -110,6 +115,19 @@ const taxesDataLayerUrl = `${baseUrl}/12`;
  * property_type,property_class_description,property_code_description
  */
 const realEstateDataLayerUrl = `${baseUrl}/13`;
+/**
+ * EGIS Schema Layer 14: Preliminary Taxes (First Quarter - Q1)
+ * parcel_id,bill_year,re_tax (Estimated Tax),cpa_tax (Community Preservation Amount),
+ * preliminary_tax (Estimated Total First Half),residential_exemption_flag,personal_exemption_flag
+ * 
+ * Field Mappings:
+ * - re_tax: Estimated Tax for first half (maps to estimatedTotalFirstHalf)
+ * - cpa_tax: Community Preservation Amount
+ * - preliminary_tax: Additional preliminary tax field
+ * - residential_exemption_flag: Residential exemption indicator (available in both layers)
+ * - personal_exemption_flag: Personal exemption indicator (available in both layers)
+ */
+const preliminaryTaxesDataLayerUrl = `${baseUrl}/14`;
 
 // Type definitions for ArcGIS Feature and response data
 interface ArcGISFeature {
@@ -460,16 +478,30 @@ export const fetchPropertySummariesByParcelIdsHelper = async (
       ownersFeatures = filterForHighestFiscalYearAndQuarter(ownersFeatures);
     }
     
-    // Fetch assessed value from Layer 12 (Taxes)
+    // Fetch assessed value from appropriate tax layer based on quarter
+    // Q1 (July-Dec): Use Layer 14 (Preliminary Taxes)
+    // Q3 (Jan-Jun): Use Layer 12 (Taxes)
     let taxesWhereClause = `(${parcelIdConditions})`;
+    let taxLayerUrl = taxesDataLayerUrl; // Default to Layer 12
+    let useLayer14 = false;
+    
     if (fiscalYearAndQuarter) {
       taxesWhereClause += ` AND bill_year=${fiscalYearAndQuarter.year}`;
+      // Use Layer 14 for Q1 (quarter "1")
+      if (fiscalYearAndQuarter.quarter === "1") {
+        taxLayerUrl = preliminaryTaxesDataLayerUrl;
+        useLayer14 = true;
+        console.log(`[EGISClient] Using Layer 14 (Preliminary Taxes) for Q1`);
+      } else {
+        console.log(`[EGISClient] Using Layer 12 (Taxes) for Q3`);
+      }
     }
+    
     const taxesQuery = `?where=${taxesWhereClause}&outFields=*&returnGeometry=false&f=json`;
     console.log(`[EGISClient] Taxes query: ${taxesQuery}`);
-    let taxesFeatures = await fetchEGISData(taxesDataLayerUrl, taxesQuery);
+    let taxesFeatures = await fetchEGISData(taxLayerUrl, taxesQuery);
     
-    // Filter taxes for highest bill year if not specified (Layer 12 uses bill_year, no quarter)
+    // Filter taxes for highest bill year if not specified
     if (!fiscalYearAndQuarter) {
       taxesFeatures = filterForHighestFiscalYearAndQuarter(taxesFeatures, { yearField: 'bill_year', hasQuarter: false });
     }
@@ -477,7 +509,16 @@ export const fetchPropertySummariesByParcelIdsHelper = async (
     // Create lookup maps
     const addressMap = new Map(addressFeatures.map(f => [f.attributes.parcel_id, f.attributes]));
     const ownersMap = new Map(ownersFeatures.map(f => [f.attributes.parcel_id, f.attributes.owner_name]));
-    const valueMap = new Map(taxesFeatures.map(f => [f.attributes.parcel_id, f.attributes.total_assessed_value]));
+    
+    // Handle different field names based on which layer was used
+    const valueMap = new Map(
+      taxesFeatures.map(f => {
+        // Layer 14 doesn't have total_assessed_value, only Layer 12 does
+        // For Layer 14, we'll use 0 or skip this field as it's preliminary data
+        const assessedValue = useLayer14 ? 0 : (f.attributes.total_assessed_value || 0);
+        return [f.attributes.parcel_id, assessedValue];
+      })
+    );
 
     // Combine data
     const results = parcelIds.map((parcelId) => ({
@@ -884,24 +925,37 @@ export const fetchPropertyDetailsByParcelIdHelper = async (
   const salesData = salesDataFeatures[0]?.attributes || {};
   console.log("[EGISClient] Sales data:", salesData);
 
-  // Get tax data from Layer 12 (Taxes)
+  // Get tax data from appropriate layer based on quarter
+  // Q1 (July-Dec): Use Layer 14 (Preliminary Taxes) with estimated values
+  // Q3 (Jan-Jun): Use Layer 12 (Taxes) with actual tax bill data
   console.log(`[EGISClient] Fetching tax data for parcelId: ${parcelId}`);
   let taxesQuery = `?where=parcel_id='${parcelId}'&outFields=*&returnGeometry=false&f=json`;
+  let taxLayerUrl = taxesDataLayerUrl; // Default to Layer 12
+  let useLayer14 = false;
 
-  // Add bill year filtering if provided (Layer 12 uses bill_year, not fiscal_year)
+  // Add bill year filtering if provided and determine which layer to use
   if (fiscalYearAndQuarter) {
     taxesQuery = `?where=parcel_id='${parcelId}' AND bill_year=${fiscalYearAndQuarter.year}&outFields=*&returnGeometry=false&f=json`;
+    
+    // Use Layer 14 for Q1 (quarter "1")
+    if (fiscalYearAndQuarter.quarter === "1") {
+      taxLayerUrl = preliminaryTaxesDataLayerUrl;
+      useLayer14 = true;
+      console.log(`[EGISClient] Using Layer 14 (Preliminary Taxes) for Q1 of FY${fiscalYearAndQuarter.year}`);
+    } else {
+      console.log(`[EGISClient] Using Layer 12 (Taxes) for Q3 of FY${fiscalYearAndQuarter.year}`);
+    }
   }
 
   console.log(`[EGISClient] Taxes query: ${taxesQuery}`);
-  console.log(`[EGISClient] Full taxes URL: ${taxesDataLayerUrl}/query${taxesQuery}`);
+  console.log(`[EGISClient] Full taxes URL: ${taxLayerUrl}/query${taxesQuery}`);
 
   let taxesFeatures: ArcGISFeature[] = [];
   try {
-    taxesFeatures = await fetchEGISData(taxesDataLayerUrl, taxesQuery);
+    taxesFeatures = await fetchEGISData(taxLayerUrl, taxesQuery);
     console.log(`[EGISClient] Taxes data found: ${taxesFeatures.length} records`);
 
-    // If no fiscal year specified, get the most recent bill year (Layer 12 uses bill_year, no quarter)
+    // If no fiscal year specified, get the most recent bill year
     if (!fiscalYearAndQuarter) {
       taxesFeatures = filterForHighestFiscalYearAndQuarter(taxesFeatures, { yearField: 'bill_year', hasQuarter: false });
       console.log(`[EGISClient] After filtering, taxes data: ${taxesFeatures.length} records`);
@@ -1025,15 +1079,15 @@ export const fetchPropertyDetailsByParcelIdHelper = async (
     fullAddress: constructFullAddress(addressData),
     owners: owners,
     imageSrc: "", // Not applicable for EGIS data
-    assessedValue: taxesData.total_assessed_value || 0,
+    assessedValue: useLayer14 ? 0 : (taxesData.total_assessed_value || 0), // Layer 14 doesn't have total_assessed_value
     propertyTypeCode: addressData.property_type || addressData.property_code_description || "Not available",
     propertyTypeDescription: addressData.property_class_description || "Not available",
     landUseCode: addressData.land_use || realEstateData.land_use || undefined,
     parcelId: parcelId,
-    propertyNetTax: taxesData.net_tax || 0,
-    personalExemptionFlag: taxesData.personal_exemption_flag,
-    residentialExemptionFlag: (taxesData.resex_amt && taxesData.resex_amt > 0) ? true : false, // Derived from resex_amt
-    totalBilledAmount: taxesData.total_billed_amt || 0,
+    propertyNetTax: useLayer14 ? (taxesData.preliminary_tax || 0) : (taxesData.net_tax || 0), // Layer 14: preliminary_tax, Layer 12: net_tax
+    personalExemptionFlag: taxesData.personal_exemption_flag || false, // Available in both layers
+    residentialExemptionFlag: taxesData.residential_exemption_flag || false, // Available in both layers
+    totalBilledAmount: useLayer14 ? (taxesData.preliminary_tax || 0) : (taxesData.total_billed_amt || 0), // Layer 14: preliminary_tax, Layer 12: total_billed_amt
     // Property Value fields
     historicPropertyValues: historicalValues,
     // Property Attributes fields
@@ -1096,21 +1150,21 @@ export const fetchPropertyDetailsByParcelIdHelper = async (
     })(),
     saleDate: salesData.latest_sales_date || undefined,
     registryBookAndPlace: salesData.latest_bkgpcert || undefined,
-    // Property Taxes fields
-    billNumber: taxesData.bill_number || undefined,
+    // Property Taxes fields - handle different field names between Layer 12 and Layer 14
+    billNumber: useLayer14 ? undefined : taxesData.bill_number, // Not available in Layer 14
     billYear: taxesData.bill_year || undefined,
-    totalAssessedValue: taxesData.total_assessed_value || 0,
-    propertyGrossTax: taxesData.gross_re_tax || 0,
-    residentialExemptionAmount: taxesData.resex_amt || 0,
-    residentialExemptionValue: taxesData.resex_value || 0,
-    personalExemptionAmount: taxesData.persexempt_total || 0,
-    personalExemptionType1: taxesData.personal_ex_type_1 ? toProperCase(parseAfterDash(taxesData.personal_ex_type_1)) : undefined,
-    personalExemptionAmount1: taxesData.personal_ex_amt_1 || 0,
-    personalExemptionType2: taxesData.personal_ex_type_2 ? toProperCase(parseAfterDash(taxesData.personal_ex_type_2)) : undefined,
-    personalExemptionAmount2: taxesData.personal_ex_amt_2 || 0,
-    communityPreservationAmount: taxesData.cpa_tax || 0,
-    netRealEstateTax: taxesData.net_re_tax || 0,
-    estimatedTotalFirstHalf: taxesData.net_re_tax || 0, // Keep for backward compatibility
+    totalAssessedValue: useLayer14 ? 0 : (taxesData.total_assessed_value || 0), // Not available in Layer 14
+    propertyGrossTax: useLayer14 ? (taxesData.re_tax || 0) : (taxesData.gross_re_tax || 0), // Layer 14: re_tax (Estimated Tax), Layer 12: gross_re_tax
+    residentialExemptionAmount: useLayer14 ? 0 : (taxesData.resex_amt || 0), // Not available in Layer 14
+    residentialExemptionValue: useLayer14 ? 0 : (taxesData.resex_value || 0), // Not available in Layer 14
+    personalExemptionAmount: useLayer14 ? 0 : (taxesData.persexempt_total || 0), // Not available in Layer 14
+    personalExemptionType1: useLayer14 ? undefined : (taxesData.personal_ex_type_1 ? toProperCase(parseAfterDash(taxesData.personal_ex_type_1)) : undefined), // Not available in Layer 14
+    personalExemptionAmount1: useLayer14 ? 0 : (taxesData.personal_ex_amt_1 || 0), // Not available in Layer 14
+    personalExemptionType2: useLayer14 ? undefined : (taxesData.personal_ex_type_2 ? toProperCase(parseAfterDash(taxesData.personal_ex_type_2)) : undefined), // Not available in Layer 14
+    personalExemptionAmount2: useLayer14 ? 0 : (taxesData.personal_ex_amt_2 || 0), // Not available in Layer 14
+    communityPreservationAmount: taxesData.cpa_tax || 0, // Available in both layers
+    netRealEstateTax: useLayer14 ? (taxesData.re_tax || 0) : (taxesData.net_re_tax || 0), // Layer 14: re_tax, Layer 12: net_re_tax
+    estimatedTotalFirstHalf: useLayer14 ? (taxesData.re_tax || 0) : (taxesData.net_re_tax || 0), // Layer 14: re_tax (Estimated Tax), Layer 12: use net_re_tax for backward compatibility
   });
 
   console.log(`[EGISClient] Property details completed for parcelId: ${parcelId}. Historical values count: ${Object.keys(historicalValues).length}`);

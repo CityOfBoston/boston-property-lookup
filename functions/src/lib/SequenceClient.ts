@@ -4,7 +4,7 @@ const db = admin.firestore();
 
 /**
  * Get the next sequence number for abatement applications for a given year.
- * Sequence numbers start at 15000 each year and increment atomically.
+ * Sequence numbers start at 10001 each year and increment atomically.
  *
  * @param year The fiscal year for the abatement application.
  * @return The next sequence number for the year.
@@ -20,8 +20,8 @@ export const getNextAbatementSequenceNumber = async (year: number): Promise<numb
       let currentCounter: number;
 
       if (!doc.exists) {
-        // First sequence number for this year - initialize at 15000
-        currentCounter = 15000;
+        // First sequence number for this year - initialize at 10001
+        currentCounter = 10001;
         transaction.set(sequenceDocRef, {
           counter: currentCounter + 1,
           year: year,
@@ -31,7 +31,7 @@ export const getNextAbatementSequenceNumber = async (year: number): Promise<numb
       } else {
         // Increment existing counter
         const data = doc.data();
-        currentCounter = data?.counter || 15000;
+        currentCounter = data?.counter || 10001;
         transaction.update(sequenceDocRef, {
           counter: currentCounter + 1,
           lastUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
