@@ -506,6 +506,22 @@ export const fetchPropertySummariesByParcelIdsHelper = async (
       taxesFeatures = filterForHighestFiscalYearAndQuarter(taxesFeatures, { yearField: 'bill_year', hasQuarter: false });
     }
 
+    // For Q1, fetch the previous year's assessed values from Layer 12
+    let previousYearValueMap = new Map<string, number>();
+    if (useLayer14 && fiscalYearAndQuarter) {
+      console.log(`[EGISClient] Fetching previous year (FY${fiscalYearAndQuarter.year - 1}) assessed values for Q1`);
+      const previousYearQuery = `?where=(${parcelIdConditions}) AND bill_year=${fiscalYearAndQuarter.year - 1}&outFields=*&returnGeometry=false&f=json`;
+      try {
+        const previousYearFeatures = await fetchEGISData(taxesDataLayerUrl, previousYearQuery);
+        previousYearValueMap = new Map(
+          previousYearFeatures.map(f => [f.attributes.parcel_id, f.attributes.total_assessed_value || 0])
+        );
+        console.log(`[EGISClient] Found ${previousYearValueMap.size} previous year assessed values`);
+      } catch (error) {
+        console.log(`[EGISClient] Error fetching previous year assessed values:`, error);
+      }
+    }
+
     // Create lookup maps
     const addressMap = new Map(addressFeatures.map(f => [f.attributes.parcel_id, f.attributes]));
     const ownersMap = new Map(ownersFeatures.map(f => [f.attributes.parcel_id, f.attributes.owner_name]));
@@ -513,10 +529,12 @@ export const fetchPropertySummariesByParcelIdsHelper = async (
     // Handle different field names based on which layer was used
     const valueMap = new Map(
       taxesFeatures.map(f => {
-        // Layer 14 doesn't have total_assessed_value, only Layer 12 does
-        // For Layer 14, we'll use 0 or skip this field as it's preliminary data
-        const assessedValue = useLayer14 ? 0 : (f.attributes.total_assessed_value || 0);
-        return [f.attributes.parcel_id, assessedValue];
+        const parcelId = f.attributes.parcel_id;
+        // Q1: use previous year's value from Layer 12, Q3: use current value from Layer 12
+        const assessedValue = useLayer14 
+          ? (previousYearValueMap.get(parcelId) || 0)
+          : (f.attributes.total_assessed_value || 0);
+        return [parcelId, assessedValue];
       })
     );
 
@@ -655,12 +673,25 @@ export const fetchPropertyDetailsByParcelIdHelper = async (
     const assessedValue = feature.attributes.assessed_value;
     console.log(`[EGISClient] Historical feature ${index}: Fiscal_Year=${yearId}, Assessed_value=${assessedValue}`);
     
-    // Only include years up to and including the selected fiscal year (if specified)
+    // Filter based on fiscal year and quarter
     if (yearId && assessedValue !== undefined) {
-      if (!fiscalYearAndQuarter || yearId <= fiscalYearAndQuarter.year) {
+      if (!fiscalYearAndQuarter) {
+        // No filter specified, include all years
         historicalValues[yearId] = assessedValue;
+      } else if (fiscalYearAndQuarter.quarter === "1") {
+        // Q1: Only show up to the previous fiscal year (exclude current year)
+        if (yearId < fiscalYearAndQuarter.year) {
+          historicalValues[yearId] = assessedValue;
+        } else {
+          console.log(`[EGISClient] Filtering out year ${yearId} in Q1 (showing only up to FY${fiscalYearAndQuarter.year - 1})`);
+        }
       } else {
-        console.log(`[EGISClient] Filtering out future year ${yearId} (selected year: ${fiscalYearAndQuarter.year})`);
+        // Q3: Show up to and including the current fiscal year
+        if (yearId <= fiscalYearAndQuarter.year) {
+          historicalValues[yearId] = assessedValue;
+        } else {
+          console.log(`[EGISClient] Filtering out future year ${yearId} (selected year: ${fiscalYearAndQuarter.year})`);
+        }
       }
     }
   });
@@ -967,6 +998,24 @@ export const fetchPropertyDetailsByParcelIdHelper = async (
   const taxesData = taxesFeatures[0]?.attributes || {};
   console.log("[EGISClient] Taxes data:", taxesData);
 
+  // For Q1, fetch the previous year's Q3 total assessed value from Layer 12
+  let previousYearAssessedValue = 0;
+  if (useLayer14 && fiscalYearAndQuarter) {
+    console.log(`[EGISClient] Fetching previous year (FY${fiscalYearAndQuarter.year - 1}) Q3 assessed value for Q1`);
+    const previousYearQuery = `?where=parcel_id='${parcelId}' AND bill_year=${fiscalYearAndQuarter.year - 1}&outFields=*&returnGeometry=false&f=json`;
+    try {
+      const previousYearFeatures = await fetchEGISData(taxesDataLayerUrl, previousYearQuery);
+      if (previousYearFeatures.length > 0) {
+        previousYearAssessedValue = previousYearFeatures[0].attributes.total_assessed_value || 0;
+        console.log(`[EGISClient] Found previous year assessed value: ${previousYearAssessedValue}`);
+      } else {
+        console.log(`[EGISClient] No previous year assessed value found, will use 0`);
+      }
+    } catch (error) {
+      console.log(`[EGISClient] Error fetching previous year assessed value:`, error);
+    }
+  }
+
   // Get real estate data from Layer 13 (Real Estate)
   console.log(`[EGISClient] Fetching real estate data for parcelId: ${parcelId}`);
   let realEstateQuery = `?where=parcel_id='${parcelId}'&outFields=*&returnGeometry=false&f=json`;
@@ -1079,7 +1128,7 @@ export const fetchPropertyDetailsByParcelIdHelper = async (
     fullAddress: constructFullAddress(addressData),
     owners: owners,
     imageSrc: "", // Not applicable for EGIS data
-    assessedValue: useLayer14 ? 0 : (taxesData.total_assessed_value || 0), // Layer 14 doesn't have total_assessed_value
+    assessedValue: useLayer14 ? previousYearAssessedValue : (taxesData.total_assessed_value || 0), // Q1: use previous year's value, Q3: use current value
     propertyTypeCode: addressData.property_type || addressData.property_code_description || "Not available",
     propertyTypeDescription: addressData.property_class_description || "Not available",
     landUseCode: addressData.land_use || realEstateData.land_use || undefined,
@@ -1153,7 +1202,7 @@ export const fetchPropertyDetailsByParcelIdHelper = async (
     // Property Taxes fields - handle different field names between Layer 12 and Layer 14
     billNumber: useLayer14 ? undefined : taxesData.bill_number, // Not available in Layer 14
     billYear: taxesData.bill_year || undefined,
-    totalAssessedValue: useLayer14 ? 0 : (taxesData.total_assessed_value || 0), // Not available in Layer 14
+    totalAssessedValue: useLayer14 ? previousYearAssessedValue : (taxesData.total_assessed_value || 0), // Q1: use previous year's value, Q3: use current value
     propertyGrossTax: useLayer14 ? (taxesData.re_tax || 0) : (taxesData.gross_re_tax || 0), // Layer 14: re_tax (Estimated Tax), Layer 12: gross_re_tax
     residentialExemptionAmount: useLayer14 ? 0 : (taxesData.resex_amt || 0), // Not available in Layer 14
     residentialExemptionValue: useLayer14 ? 0 : (taxesData.resex_value || 0), // Not available in Layer 14

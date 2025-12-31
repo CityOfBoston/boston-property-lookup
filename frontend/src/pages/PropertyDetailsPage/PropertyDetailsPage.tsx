@@ -133,25 +133,6 @@ export default function PropertyDetailsPage() {
     );
   }
 
-  // Check if the selected fiscal year has valuation data
-  // If the fiscal year doesn't exist in historicPropertyValues, it means the data hasn't been published yet
-  const currentFiscalYear = getFiscalYear(date);
-  const hasValuationData = propertyDetails.propertyValue.historicPropertyValues.hasOwnProperty(currentFiscalYear);
-  
-  if (!hasValuationData) {
-    const commonContent = getComponentText('common');
-    const errorContent = commonContent.errors;
-    return (
-      <div className={styles.propertyDetailsPage}>
-        {showTimeChanger && <TimeChanger />}
-        <div className={styles.error}>
-          <h1>{errorContent.futureDataNotAvailable}</h1>
-          <p>{errorContent.futureDataDescription.replace('{fiscalYear}', currentFiscalYear.toString())}</p>
-        </div>
-      </div>
-    );
-  }
-
   // Check if abatements section should be shown
   const now = date;
   const calendarYear = now.getFullYear();

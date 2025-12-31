@@ -190,8 +190,6 @@ periods:
     amount_to_be_decided: "Amount to be decided"
     preliminary_flag_false: "Not Applied"
     
-    # Owner disclaimer
-    owner_disclaimer: "Owner information may not reflect any changes submitted to the City of Boston’s Assessing Department after October 25, 2024."
     
     # Map link
     open_in_map: "Open in map"

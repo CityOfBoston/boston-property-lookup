@@ -20,6 +20,7 @@ import React from 'react';
 import { contentService } from '@services/content/ContentService';
 import { languageService } from '@services/content/LanguageService';
 import { useDateContext } from '@hooks/useDateContext';
+import { getOwnerDisclaimer } from '@utils/fiscalData';
 import type { OverviewSectionData } from '@src/types';
 
 export interface OverviewCard {
@@ -33,6 +34,7 @@ export interface OverviewContent {
   sharedLabels: any;
   isPrelimPeriod: boolean;
   cards: OverviewCard[];
+  ownerDisclaimer: string;
   getExemptionStatus: (amount: number, flag: boolean) => string;
   formatPropertyType: (code: string, description?: string) => string;
   formatValue: (value: number | null | undefined) => string;
@@ -78,6 +80,9 @@ export function useOverviewContent(data: OverviewSectionData): OverviewContent {
   // Determine if we're in the preliminary period (July-December)
   const nowMonth = date.getMonth();
   const isPrelimPeriod = nowMonth >= 6 && nowMonth < 12;
+  
+  // Get dynamic owner disclaimer based on current date
+  const ownerDisclaimer = getOwnerDisclaimer(date);
   
   // Format values
   const formatValue = (value: number | null | undefined): string => {
@@ -147,6 +152,7 @@ export function useOverviewContent(data: OverviewSectionData): OverviewContent {
     sharedLabels,
     isPrelimPeriod,
     cards,
+    ownerDisclaimer,
     getExemptionStatus,
     formatPropertyType,
     formatValue,

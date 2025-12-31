@@ -21,7 +21,7 @@ import { useExemptionPhases } from '@hooks/logic/useExemptionPhases';
 import { ExemptionPresenter } from '@presenters/ExemptionPresenter';
 import { PropertyTaxPresenter } from '@presenters/PropertyTaxPresenter';
 import { getResidentialExemptionValue, getPersonalExemptionValue } from './useExemptionValues';
-import { getTaxRates, formatTaxRate } from '@utils/taxRates';
+import { getTaxRates, formatTaxRate } from '@utils/fiscalData';
 
 export interface PropertyTaxContent {
   taxRateCards: Array<{

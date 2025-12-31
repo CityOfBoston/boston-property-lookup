@@ -1,0 +1,109 @@
+# Fiscal Year Configuration Data
+# This file contains all fiscal year-specific data including tax rates and owner disclaimer dates
+# 
+# STRUCTURE:
+# Each fiscal year contains:
+# - taxRates: Residential and commercial tax rates (per $1,000 of assessed value)
+# - ownerDisclaimerDates: Dates when owner information was last updated (changes Q1 & Q3)
+#
+# HOW TO ADD A NEW FISCAL YEAR:
+# 
+# Add a new entry under 'fiscalYears' with the fiscal year as the key:
+# Example:
+#   2027:
+#     taxRates:
+#       residential: 12.00
+#       commercial: 26.50
+#     ownerDisclaimerDates:
+#       q1: "April 25, 2026"    # Used July 1, 2026 - December 31, 2026
+#       q3: "October 25, 2026"  # Used January 1, 2027 - June 30, 2027
+#
+# QUARTERLY SCHEDULE:
+# - Q1 (July 1 - December 31): First half of fiscal year, uses q1 disclaimer date
+# - Q3 (January 1 - June 30): Second half of fiscal year, uses q3 disclaimer date
+#
+# FUTURE DATE HANDLING:
+# For dates beyond the configured fiscal years, the system automatically uses:
+# - Latest configured fiscal year's tax rates
+# - Latest Q3 disclaimer date (most recent update)
+# This prevents errors when using the TimeChanger to select future dates.
+
+fiscalYears:
+  # FY2026
+  2026:
+    taxRates:
+      residential: 12.40
+      commercial: 26.96
+    ownerDisclaimerDates:
+      q1: "April 25, 2025"    # Used July 1, 2025 - December 31, 2025
+      q3: "November 21, 2025"  # Used January 1, 2026 - June 30, 2026
+  
+  # FY2025
+  2025:
+    taxRates:
+      residential: 11.58
+      commercial: 25.96
+    ownerDisclaimerDates:
+      q1: "April 25, 2024"    # Used July 1, 2024 - December 31, 2024
+      q3: "October 25, 2024"  # Used January 1, 2025 - June 30, 2025
+  
+  # FY2024
+  2024:
+    taxRates:
+      residential: 10.90
+      commercial: 25.27
+    ownerDisclaimerDates:
+      q1: "April 25, 2023"
+      q3: "October 25, 2023"
+
+  # FY2023
+  2023:
+    taxRates:
+      residential: 10.74
+      commercial: 24.68
+    ownerDisclaimerDates:
+      q1: "April 25, 2022"
+      q3: "October 25, 2022"
+  
+  # FY2022
+  2022:
+    taxRates:
+      residential: 10.88
+      commercial: 24.98
+    ownerDisclaimerDates:
+      q1: "April 25, 2021"
+      q3: "October 25, 2021"
+  
+  # FY2021
+  2021:
+    taxRates:
+      residential: 10.67
+      commercial: 24.55
+    ownerDisclaimerDates:
+      q1: "April 25, 2020"
+      q3: "October 25, 2020"
+  
+  # FY2020
+  2020:
+    taxRates:
+      residential: 10.56
+      commercial: 24.92
+    ownerDisclaimerDates:
+      q1: "April 25, 2019"
+      q3: "October 25, 2019"
+  
+  # FY2027 (future year - placeholder)
+  # 2027:
+  #   taxRates:
+  #     residential: TBD
+  #     commercial: TBD
+  #   ownerDisclaimerDates:
+  #     q1: "April 25, 2026"
+  #     q3: "October 25, 2026"
+
+# Default values to use when a specific fiscal year is not found
+defaults:
+  taxRates:
+    residential: 11.58
+    commercial: 25.96
+  ownerDisclaimerDate: "October 25, 2024"

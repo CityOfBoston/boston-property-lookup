@@ -51,6 +51,7 @@ export default function OverviewSection({ data, title }: OverviewSectionProps) {
     content,
     sharedLabels,
     cards,
+    ownerDisclaimer,
     formatPropertyType,
     formatValue,
     getMapUrl,
@@ -87,7 +88,7 @@ export default function OverviewSection({ data, title }: OverviewSectionProps) {
                 {content.sections?.owners?.nameFormat || 'Owner names appear as Last Name followed by First Name'}
               </div>
               <div className={`${sharedStyles.paragraph} ${styles.ownerDisclaimer}`}>
-                {content.sections?.owners?.disclaimer || "Owner information may not reflect any changes submitted to the City of Boston's Assessing Department after October 25, 2024."}
+                {ownerDisclaimer}
               </div>
             </div>
           </div>
