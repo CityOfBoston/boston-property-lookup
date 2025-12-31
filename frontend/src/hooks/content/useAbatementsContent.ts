@@ -36,7 +36,7 @@ export function useAbatementsContent(parcelId: string): AbatementsContent {
   const calendarYear = now.getFullYear();
   const nowMonth = now.getMonth();
   // For abatements, we need to use the calendar year when applications are due
-  // For July 2025 (FY2026), abatements for FY2026 were due in February 2025 (calendar year 2025)
+  // For July 2026 (FY2027), abatements for FY2027 were due in February 2026 (calendar year 2026)
   const abatementYear = nowMonth >= 6 ? calendarYear : calendarYear - 1;
   const abatementPhase = getAbatementPhase(now, abatementYear, parcelId);
   

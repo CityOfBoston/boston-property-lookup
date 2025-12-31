@@ -102,7 +102,7 @@ export function formatDateForDisplay(date: Date, opts?: { withTime?: boolean }) 
 // Utility to get the fiscal year for a given date
 export function getFiscalYear(date: Date): number {
   // Fiscal year starts July 1st of previous year, ends June 30th of current year
-  // e.g., July 1, 2024 - June 30, 2025 is FY2025
+  // e.g., July 1, 2025 - June 30, 2026 is FY2026
   const year = date.getFullYear();
   const month = date.getMonth(); // 0-indexed: 0=Jan, 6=July
   return month >= 6 ? year + 1 : year;

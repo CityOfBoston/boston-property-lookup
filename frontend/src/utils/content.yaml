@@ -58,6 +58,8 @@ shared:
     notFound: "Not found"
     propertyNotFound: "Property Not Found"
     noPropertyId: "No property ID was provided. Please try searching for a property."
+    futureDataNotAvailable: "Property Data Not Yet Available"
+    futureDataDescription: "Property assessment information for Fiscal Year {fiscalYear} has not been published yet. Please select an earlier date to view available property details."
 
 # Component-specific text configurations
 components:
@@ -196,10 +198,10 @@ components:
       cards:
         residential:
           header: "Residential Tax Rate"
-          value: "$11.58 per $1,000"
+          # Tax rate values are now dynamic and loaded from taxRates.yaml
         commercial:
           header: "Commercial Tax Rate"
-          value: "$25.96 per $1,000"
+          # Tax rate values are now dynamic and loaded from taxRates.yaml
       links:
         howWeTax:
           text: "How we tax your property"

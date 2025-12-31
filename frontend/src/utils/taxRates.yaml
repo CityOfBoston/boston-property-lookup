@@ -1,0 +1,58 @@
+# Tax rates by fiscal year
+# Each fiscal year has residential and commercial tax rates per $1,000 of assessed value
+# 
+# HOW TO ADD NEW FISCAL YEAR RATES:
+# 1. Add a new entry under 'taxRates' with the fiscal year as the key
+# 2. Provide both 'residential' and 'commercial' rates
+# 3. Rates should be the tax amount per $1,000 of assessed value
+# 
+# Example:
+#   2027:
+#     residential: 12.00
+#     commercial: 26.50
+#
+# The application will automatically use these rates when the fiscal year is selected.
+# If a fiscal year is not found, it will fall back to the defaultRates.
+
+taxRates:
+  # FY2026 rates
+  2026:
+    residential: 12.40
+    commercial: 26.96
+  
+  # FY2025 rates (previous year - example values)
+  2025:
+    residential: 11.58
+    commercial: 25.96
+  
+  # FY2024 rates (example values)
+  2024:
+    residential: 10.90
+    commercial: 25.27
+
+  # FY2023 rates (example values)
+  2023:
+    residential: 10.74
+    commercial: 24.68
+  
+  2022:
+    residential: 10.88
+    commercial: 24.98
+  
+  2021:
+    residential: 10.67
+    commercial: 24.55
+  
+  2020:
+    residential: 10.56
+    commercial: 24.92
+  
+  # FY2027 rates (future year - placeholder)
+  # 2027:
+  #   residential: TBD
+  #   commercial: TBD
+
+# Default rates to use when a specific fiscal year is not found
+defaultRates:
+  residential: 11.58
+  commercial: 25.96

@@ -12,6 +12,21 @@
   align-items: center;
   justify-content: center;
   text-align: center;
+  padding: 4rem 2rem;
+  min-height: 400px;
+  
+  h1 {
+    color: #58585B;
+    margin-bottom: 1rem;
+    font-size: 2rem;
+  }
+  
+  p {
+    color: #58585B;
+    font-size: 1.1rem;
+    max-width: 600px;
+    line-height: 1.6;
+  }
 }
 
 .loadingContainer {

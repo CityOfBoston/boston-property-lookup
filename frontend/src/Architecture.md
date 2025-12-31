@@ -106,7 +106,7 @@ const shared = contentService.getCommonContent();
 import { languageService } from '@services/content/LanguageService';
 
 const message = languageService.getPropertyTaxMessage('residential_preliminary_submitted', {
-  current_fy: 2025
+  current_fy: 2026
 });
 ```
 
@@ -131,10 +131,10 @@ const message = languageService.getPropertyTaxMessage('residential_preliminary_s
 import { ExemptionPresenter } from '@presenters/ExemptionPresenter';
 
 const presenter = new ExemptionPresenter({
-  fiscalYear: 2025,
-  calendarYear: 2024,
+  fiscalYear: 2026,
+  calendarYear: 2025,
   isPrelimPeriod: true,
-  displayFY: 2025,
+  displayFY: 2026,
   residentialExemptionMaxAmount: 3000
 });
 
@@ -160,9 +160,9 @@ const message = presenter.createResidentialExemptionMessage('preliminary', true)
 import { PropertyTaxPresenter } from '@presenters/PropertyTaxPresenter';
 
 const presenter = new PropertyTaxPresenter({
-  fiscalYear: 2025,
-  calendarYear: 2024,
-  displayFY: 2025,
+  fiscalYear: 2026,
+  calendarYear: 2025,
+  displayFY: 2026,
   parcelId: '123456',
   residentialGranted: true,
   residentialExemptionPhase: { phase: 'open' }

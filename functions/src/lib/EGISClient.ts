@@ -613,8 +613,14 @@ export const fetchPropertyDetailsByParcelIdHelper = async (
     const yearId = feature.attributes.fiscal_year;
     const assessedValue = feature.attributes.assessed_value;
     console.log(`[EGISClient] Historical feature ${index}: Fiscal_Year=${yearId}, Assessed_value=${assessedValue}`);
+    
+    // Only include years up to and including the selected fiscal year (if specified)
     if (yearId && assessedValue !== undefined) {
-      historicalValues[yearId] = assessedValue;
+      if (!fiscalYearAndQuarter || yearId <= fiscalYearAndQuarter.year) {
+        historicalValues[yearId] = assessedValue;
+      } else {
+        console.log(`[EGISClient] Filtering out future year ${yearId} (selected year: ${fiscalYearAndQuarter.year})`);
+      }
     }
   });
 

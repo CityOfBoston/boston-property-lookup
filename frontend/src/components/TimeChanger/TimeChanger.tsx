@@ -23,7 +23,7 @@ export interface TimeChangerProps {}
 
 const TimeChanger: React.FC<TimeChangerProps> = () => {
   const { date: selectedDate, setDate, resetDate, formatDate, parseDate } = useDateContext();
-  const year = 2025; // Fixed to 2025 only
+  const year = selectedDate.getFullYear(); // Use year from selected date
   const timepoints = useMemo(() => {
     const tps = getAllTimepoints(year);
     return [...tps].sort((a, b) => a.date.getTime() - b.date.getTime());
@@ -108,18 +108,11 @@ const TimeChanger: React.FC<TimeChangerProps> = () => {
     if (val) {
       let parsedDate = parseDate(val);
       
-      // Only allow 2025 dates
-      if (parsedDate.getFullYear() !== 2025) {
-        // If not 2025, reset to today's date in 2025
-        const today = new Date();
-        const todayIn2025 = new Date(2025, today.getMonth(), today.getDate());
-        parsedDate = todayIn2025;
-      }
-      
-      // If outside date range constraints, redirect to start date
-      const isOutsideRange = (startDate && parsedDate < startDate) || (endDate && parsedDate > endDate);
-      if (isOutsideRange && startDate) {
+      // If outside date range constraints, redirect to start date or end date
+      if (startDate && parsedDate < startDate) {
         parsedDate = startDate;
+      } else if (endDate && parsedDate > endDate) {
+        parsedDate = endDate;
       }
       
       setDate(parsedDate);
@@ -130,17 +123,17 @@ const TimeChanger: React.FC<TimeChangerProps> = () => {
   };
 
   const handleReset = () => {
-    // Reset to today's date in 2025
-    const today = new Date();
-    let todayIn2025 = new Date(2025, today.getMonth(), today.getDate());
+    // Reset to today's actual date
+    let today = new Date();
     
-    // If today is outside the date range constraints, redirect to start date
-    const isOutsideRange = (startDate && todayIn2025 < startDate) || (endDate && todayIn2025 > endDate);
-    if (isOutsideRange && startDate) {
-      todayIn2025 = startDate;
+    // If today is outside the date range constraints, redirect to start or end date
+    if (startDate && today < startDate) {
+      today = startDate;
+    } else if (endDate && today > endDate) {
+      today = endDate;
     }
     
-    setDate(todayIn2025);
+    setDate(today);
     setPendingDay(null);
     setExpanded(false); // Auto-collapse after reset
   };
@@ -187,8 +180,8 @@ const TimeChanger: React.FC<TimeChangerProps> = () => {
   }, [flash]);
 
   // Calculate min/max for date input fields
-  const minDateStr = startDate ? formatDate(startDate) : "2025-01-01";
-  const maxDateStr = endDate ? formatDate(endDate) : "2025-12-31";
+  const minDateStr = startDate ? formatDate(startDate) : undefined;
+  const maxDateStr = endDate ? formatDate(endDate) : undefined;
 
   // Expanded view: full timeline
   if (!expanded) {

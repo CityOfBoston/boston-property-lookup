@@ -1,6 +1,5 @@
 import React from 'react';
 import styles from './WelcomeContent.module.scss';
-import { BetaLabel } from '../BetaLabel';
 import { WelcomeContentProps as WelcomeContentTextProps } from '@src/types/content';
 
 const parseStyledText = (text: string | undefined): React.ReactNode[] => {
@@ -39,7 +38,7 @@ export const WelcomeContent: React.FC<WelcomeContentProps & { additionalContent?
     <div className={styles.container}>
       <div className={styles.contentWrapper}>
         <h1 className={titleClassName}>
-          {title} <BetaLabel variant="white" />
+          {title}
         </h1>
         {additionalContent && (
           <div className={styles.mobileAdditionalContent}>

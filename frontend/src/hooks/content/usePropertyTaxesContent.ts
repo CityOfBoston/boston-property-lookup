@@ -21,6 +21,7 @@ import { useExemptionPhases } from '@hooks/logic/useExemptionPhases';
 import { ExemptionPresenter } from '@presenters/ExemptionPresenter';
 import { PropertyTaxPresenter } from '@presenters/PropertyTaxPresenter';
 import { getResidentialExemptionValue, getPersonalExemptionValue } from './useExemptionValues';
+import { getTaxRates, formatTaxRate } from '@utils/taxRates';
 
 export interface PropertyTaxContent {
   taxRateCards: Array<{
@@ -95,16 +96,19 @@ export function usePropertyTaxesContent(props: PropertyTaxesSectionData): Proper
     residentialExemptionPhase,
   });
 
-  // Tax rate cards
+  // Get tax rates for the display fiscal year
+  const taxRates = getTaxRates(displayFY);
+  
+  // Tax rate cards - dynamic based on fiscal year
   const taxRateCards = [
     {
       header: 'Residential Tax Rate',
-      value: '$11.58 per $1,000',
+      value: formatTaxRate(taxRates.residential),
       isGrey: true,
     },
     {
       header: 'Commercial Tax Rate',
-      value: '$25.96 per $1,000',
+      value: formatTaxRate(taxRates.commercial),
       isGrey: true,
     },
   ];

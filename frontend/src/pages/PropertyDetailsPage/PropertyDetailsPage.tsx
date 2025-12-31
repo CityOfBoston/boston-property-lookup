@@ -23,7 +23,7 @@ import styles from './PropertyDetailsPage.module.scss';
 /**
  * Helper function to get fiscal year from a date
  * Fiscal year starts July 1st of previous year, ends June 30th of current year
- * e.g., July 1, 2024 - June 30, 2025 is FY2025
+ * e.g., July 1, 2025 - June 30, 2026 is FY2026
  */
 function getFiscalYear(date: Date): number {
   const year = date.getFullYear();
@@ -38,7 +38,6 @@ function getFiscalYear(date: Date): number {
  */
 export default function PropertyDetailsPage() {
   const pageContent = getComponentText('propertyDetails', 'pages.propertyDetails');
-  const config = getComponentText('config');
   const analytics = useGoogleAnalytics();
   const performance = usePerformanceTracking('PropertyDetailsPage');
   const [searchParams] = useSearchParams();
@@ -134,6 +133,25 @@ export default function PropertyDetailsPage() {
     );
   }
 
+  // Check if the selected fiscal year has valuation data
+  // If the fiscal year doesn't exist in historicPropertyValues, it means the data hasn't been published yet
+  const currentFiscalYear = getFiscalYear(date);
+  const hasValuationData = propertyDetails.propertyValue.historicPropertyValues.hasOwnProperty(currentFiscalYear);
+  
+  if (!hasValuationData) {
+    const commonContent = getComponentText('common');
+    const errorContent = commonContent.errors;
+    return (
+      <div className={styles.propertyDetailsPage}>
+        {showTimeChanger && <TimeChanger />}
+        <div className={styles.error}>
+          <h1>{errorContent.futureDataNotAvailable}</h1>
+          <p>{errorContent.futureDataDescription.replace('{fiscalYear}', currentFiscalYear.toString())}</p>
+        </div>
+      </div>
+    );
+  }
+
   // Check if abatements section should be shown
   const now = date;
   const calendarYear = now.getFullYear();
@@ -145,7 +163,8 @@ export default function PropertyDetailsPage() {
   const trackSectionView = (sectionName: string) => {
     analytics.trackButtonClick({
       button_id: `${sectionName.toLowerCase().replace(/\s+/g, '_')}_section_button`,
-      context: `property_details_${parcelId}`
+      button_text: sectionName,
+      context: `property_details_${parcelId}`,
     });
   };
 

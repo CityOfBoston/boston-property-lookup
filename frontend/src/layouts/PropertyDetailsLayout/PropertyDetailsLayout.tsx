@@ -5,7 +5,6 @@ import Header from "../Header";
 import { IconButton } from "@components/IconButton";
 import { PropertySearchPopup } from "@components/PropertySearchPopup";
 import { FeedbackSenderContainer } from "@containers/FeedbackSenderContainer";
-import { BetaLabel } from "@components/BetaLabel";
 import { getComponentText } from "@utils/contentMapper";
 import styles from "./PropertyDetailsLayout.module.scss";
 import backToTop from "../../assets/back_to_top.png";
@@ -249,7 +248,7 @@ export default function PropertyDetailsLayout({ sections, parcelId }: PropertyDe
       {/* Main content with sections */}
       <main ref={mainRef} className={styles.main}>
         <div>
-          <h1 className={styles.detailsTitle}>{layoutContent.title} <BetaLabel variant="blue" /></h1>
+          <h1 className={styles.detailsTitle}>{layoutContent.title}</h1>
           {sections.map((section, index) => (
             <div
               key={section.name}
