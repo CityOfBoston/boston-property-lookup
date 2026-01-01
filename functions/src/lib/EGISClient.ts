@@ -946,8 +946,16 @@ export const fetchPropertyDetailsByParcelIdHelper = async (
 
   let salesDataFeatures: ArcGISFeature[] = [];
   try {
-    salesDataFeatures = await fetchEGISData(salesDataLayerUrl, salesDataQuery);
-    console.log(`[EGISClient] Sales data found: ${salesDataFeatures.length} records`);
+    // Layer 11 may not support pagination, so fetch directly
+    const response = await fetch(`${salesDataLayerUrl}/query${salesDataQuery}`);
+    if (response.ok) {
+      const data = await response.json() as EGISQueryResponse;
+      salesDataFeatures = data.features || [];
+      console.log(`[EGISClient] Sales data found: ${salesDataFeatures.length} records`);
+      console.log(`[EGISClient] Sales data response:`, JSON.stringify(data));
+    } else {
+      console.log(`[EGISClient] Sales data query returned error status: ${response.status}`);
+    }
   } catch (error) {
     console.log(`[EGISClient] Sales data query failed: ${salesDataQuery}`, error);
   }
@@ -1194,11 +1202,30 @@ export const fetchPropertyDetailsByParcelIdHelper = async (
     parkingType: condoAttrs.parking_type ? toProperCase(parseAfterDash(condoAttrs.parking_type)) : undefined, // Condo only
     tandemParking: condoAttrs.tandem_parking ? toProperCase(condoAttrs.tandem_parking) : undefined, // Condo only
     salePrice: (() => {
-      const price = salesData["latest_sales_price"] || salesData["latest-sales_price"];
-      return price ? Number(price).toLocaleString() : undefined;
+      const price = salesData.latest_sales_price;
+      const formattedPrice = price ? Number(price).toLocaleString() : undefined;
+      console.log(`[EGISClient] Sale price: raw=${price}, formatted=${formattedPrice}`);
+      return formattedPrice;
     })(),
-    saleDate: salesData.latest_sales_date || undefined,
-    registryBookAndPlace: salesData.latest_bkgpcert || undefined,
+    saleDate: (() => {
+      const date = salesData.latest_sales_date;
+      if (!date) {
+        console.log(`[EGISClient] Sale date: raw=${date}, formatted=undefined`);
+        return undefined;
+      }
+      // Convert YYYY-MM-DD to readable format
+      // Parse manually to avoid timezone issues
+      const [year, month, day] = date.split('-').map(Number);
+      const dateObj = new Date(year, month - 1, day);
+      const formattedDate = dateObj.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      console.log(`[EGISClient] Sale date: raw=${date}, formatted=${formattedDate}`);
+      return formattedDate;
+    })(),
+    registryBookAndPlace: (() => {
+      const registry = salesData.latest_bkgpcert || undefined;
+      console.log(`[EGISClient] Registry book: ${registry}`);
+      return registry;
+    })(),
     // Property Taxes fields - handle different field names between Layer 12 and Layer 14
     billNumber: useLayer14 ? undefined : taxesData.bill_number, // Not available in Layer 14
     billYear: taxesData.bill_year || undefined,

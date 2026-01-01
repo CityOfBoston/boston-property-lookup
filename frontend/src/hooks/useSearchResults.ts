@@ -77,8 +77,8 @@ export const useSearchResults = (): UseSearchResultsReturn => {
       // Keep track of original order using a Map
       const orderMap = new Map(fuzzyResults.map((result, index) => [result.parcelId, index]));
       
-      // Extract parcel IDs from fuzzy search results and limit to 50
-      const parcelIds = fuzzyResults.map(result => result.parcelId).slice(0, 50);
+      // Extract parcel IDs from fuzzy search results and limit to 1000
+      const parcelIds = fuzzyResults.map(result => result.parcelId).slice(0, 500);
       
       // Check if search was cancelled
       if (abortControllerRef.current.signal.aborted) {
