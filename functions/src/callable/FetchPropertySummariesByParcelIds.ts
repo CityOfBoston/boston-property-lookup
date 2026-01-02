@@ -16,8 +16,8 @@ export const fetchPropertySummariesByParcelIds = createCallable(async (data: { p
     throw new Error("parcelIds array cannot be empty");
   }
 
-  if (data.parcelIds.length > 50) {
-    throw new Error("Maximum 50 parcelIds allowed per request");
+  if (data.parcelIds.length > 500) {
+    throw new Error("Maximum 500 parcelIds allowed per request");
   }
 
   // Validate each parcelId with additional security checks

@@ -453,92 +453,120 @@ export const fetchPropertySummariesByParcelIdsHelper = async (
     console.log("[EGISClient] No fiscal year/quarter specified, using latest available data");
   }
 
-  // Build OR query for multiple parcel IDs
-  const parcelIdConditions = parcelIds.map((id) => `parcel_id='${id}'`).join(" OR ");
+  // Batch parcel IDs to avoid URL length limits (ArcGIS REST API typically has ~2000 char limit)
+  // Each parcel_id='XXXXXXXXXX' OR is ~25 chars, so 50 IDs = ~1250 chars (safe limit)
+  const batchSize = 50;
+  const batches: string[][] = [];
+  for (let i = 0; i < parcelIds.length; i += batchSize) {
+    batches.push(parcelIds.slice(i, i + batchSize));
+  }
+
+  console.log(`[EGISClient] Split ${parcelIds.length} parcel IDs into ${batches.length} batches of max ${batchSize}`);
 
   try {
-    // Fetch address data from Layer 13 (Real Estate)
-    const addressQuery = `?where=${parcelIdConditions}&outFields=*&returnGeometry=false&f=json`;
-    console.log(`[EGISClient] Address query: ${addressQuery}`);
-    let addressFeatures = await fetchEGISData(realEstateDataLayerUrl, addressQuery);
-    // Filter for highest fiscal year and quarter
-    addressFeatures = filterForHighestFiscalYearAndQuarter(addressFeatures);
-    
-    // Fetch owner data from Layer 7 (Current Owners)
-    let ownersWhereClause = `(${parcelIdConditions})`;
-    if (fiscalYearAndQuarter) {
-      ownersWhereClause += ` AND fiscal_year=${fiscalYearAndQuarter.year} AND quarter=${fiscalYearAndQuarter.quarter}`;
-    }
-    const ownersQuery = `?where=${ownersWhereClause}&outFields=*&returnGeometry=false&f=json`;
-    console.log(`[EGISClient] Owners query: ${ownersQuery}`);
-    let ownersFeatures = await fetchEGISData(currentOwnersDataLayerUrl, ownersQuery);
-    
-    // Filter owners for highest fiscal year/quarter if not specified
-    if (!fiscalYearAndQuarter) {
-      ownersFeatures = filterForHighestFiscalYearAndQuarter(ownersFeatures);
-    }
-    
-    // Fetch assessed value from appropriate tax layer based on quarter
-    // Q1 (July-Dec): Use Layer 14 (Preliminary Taxes)
-    // Q3 (Jan-Jun): Use Layer 12 (Taxes)
-    let taxesWhereClause = `(${parcelIdConditions})`;
-    let taxLayerUrl = taxesDataLayerUrl; // Default to Layer 12
-    let useLayer14 = false;
-    
-    if (fiscalYearAndQuarter) {
-      taxesWhereClause += ` AND bill_year=${fiscalYearAndQuarter.year}`;
-      // Use Layer 14 for Q1 (quarter "1")
-      if (fiscalYearAndQuarter.quarter === "1") {
-        taxLayerUrl = preliminaryTaxesDataLayerUrl;
-        useLayer14 = true;
-        console.log(`[EGISClient] Using Layer 14 (Preliminary Taxes) for Q1`);
-      } else {
-        console.log(`[EGISClient] Using Layer 12 (Taxes) for Q3`);
-      }
-    }
-    
-    const taxesQuery = `?where=${taxesWhereClause}&outFields=*&returnGeometry=false&f=json`;
-    console.log(`[EGISClient] Taxes query: ${taxesQuery}`);
-    let taxesFeatures = await fetchEGISData(taxLayerUrl, taxesQuery);
-    
-    // Filter taxes for highest bill year if not specified
-    if (!fiscalYearAndQuarter) {
-      taxesFeatures = filterForHighestFiscalYearAndQuarter(taxesFeatures, { yearField: 'bill_year', hasQuarter: false });
-    }
+    // Process all batches in parallel for better performance
+    const batchPromises = batches.map(async (batchIds) => {
+      // Build OR query for this batch of parcel IDs
+      const parcelIdConditions = batchIds.map((id) => `parcel_id='${id}'`).join(" OR ");
 
-    // For Q1, fetch the previous year's assessed values from Layer 12
-    let previousYearValueMap = new Map<string, number>();
-    if (useLayer14 && fiscalYearAndQuarter) {
-      console.log(`[EGISClient] Fetching previous year (FY${fiscalYearAndQuarter.year - 1}) assessed values for Q1`);
-      const previousYearQuery = `?where=(${parcelIdConditions}) AND bill_year=${fiscalYearAndQuarter.year - 1}&outFields=*&returnGeometry=false&f=json`;
-      try {
-        const previousYearFeatures = await fetchEGISData(taxesDataLayerUrl, previousYearQuery);
-        previousYearValueMap = new Map(
-          previousYearFeatures.map(f => [f.attributes.parcel_id, f.attributes.total_assessed_value || 0])
-        );
-        console.log(`[EGISClient] Found ${previousYearValueMap.size} previous year assessed values`);
-      } catch (error) {
-        console.log(`[EGISClient] Error fetching previous year assessed values:`, error);
+      // Fetch address data from Layer 13 (Real Estate)
+      const addressQuery = `?where=${parcelIdConditions}&outFields=*&returnGeometry=false&f=json`;
+      let addressFeatures = await fetchEGISData(realEstateDataLayerUrl, addressQuery);
+      // Filter for highest fiscal year and quarter
+      addressFeatures = filterForHighestFiscalYearAndQuarter(addressFeatures);
+      
+      // Fetch owner data from Layer 7 (Current Owners)
+      let ownersWhereClause = `(${parcelIdConditions})`;
+      if (fiscalYearAndQuarter) {
+        ownersWhereClause += ` AND fiscal_year=${fiscalYearAndQuarter.year} AND quarter=${fiscalYearAndQuarter.quarter}`;
       }
-    }
+      const ownersQuery = `?where=${ownersWhereClause}&outFields=*&returnGeometry=false&f=json`;
+      let ownersFeatures = await fetchEGISData(currentOwnersDataLayerUrl, ownersQuery);
+      
+      // Filter owners for highest fiscal year/quarter if not specified
+      if (!fiscalYearAndQuarter) {
+        ownersFeatures = filterForHighestFiscalYearAndQuarter(ownersFeatures);
+      }
+      
+      // Fetch assessed value from appropriate tax layer based on quarter
+      // Q1 (July-Dec): Use Layer 14 (Preliminary Taxes)
+      // Q3 (Jan-Jun): Use Layer 12 (Taxes)
+      let taxesWhereClause = `(${parcelIdConditions})`;
+      let taxLayerUrl = taxesDataLayerUrl; // Default to Layer 12
+      let useLayer14 = false;
+      
+      if (fiscalYearAndQuarter) {
+        taxesWhereClause += ` AND bill_year=${fiscalYearAndQuarter.year}`;
+        // Use Layer 14 for Q1 (quarter "1")
+        if (fiscalYearAndQuarter.quarter === "1") {
+          taxLayerUrl = preliminaryTaxesDataLayerUrl;
+          useLayer14 = true;
+        }
+      }
+      
+      const taxesQuery = `?where=${taxesWhereClause}&outFields=*&returnGeometry=false&f=json`;
+      let taxesFeatures = await fetchEGISData(taxLayerUrl, taxesQuery);
+      
+      // Filter taxes for highest bill year if not specified
+      if (!fiscalYearAndQuarter) {
+        taxesFeatures = filterForHighestFiscalYearAndQuarter(taxesFeatures, { yearField: 'bill_year', hasQuarter: false });
+      }
 
-    // Create lookup maps
-    const addressMap = new Map(addressFeatures.map(f => [f.attributes.parcel_id, f.attributes]));
-    const ownersMap = new Map(ownersFeatures.map(f => [f.attributes.parcel_id, f.attributes.owner_name]));
-    
-    // Handle different field names based on which layer was used
-    const valueMap = new Map(
-      taxesFeatures.map(f => {
+      // For Q1, fetch the previous year's assessed values from Layer 12
+      let previousYearValueMap = new Map<string, number>();
+      if (useLayer14 && fiscalYearAndQuarter) {
+        const previousYearQuery = `?where=(${parcelIdConditions}) AND bill_year=${fiscalYearAndQuarter.year - 1}&outFields=*&returnGeometry=false&f=json`;
+        try {
+          const previousYearFeatures = await fetchEGISData(taxesDataLayerUrl, previousYearQuery);
+          previousYearValueMap = new Map(
+            previousYearFeatures.map(f => [f.attributes.parcel_id, f.attributes.total_assessed_value || 0])
+          );
+        } catch (error) {
+          console.log(`[EGISClient] Error fetching previous year assessed values for batch:`, error);
+        }
+      }
+
+      // Return maps for this batch
+      return {
+        addressFeatures,
+        ownersFeatures,
+        taxesFeatures,
+        previousYearValueMap,
+        useLayer14,
+      };
+    });
+
+    // Wait for all batches to complete
+    const batchResults = await Promise.all(batchPromises);
+    console.log(`[EGISClient] Completed ${batchResults.length} batch requests`);
+
+    // Combine all batch results into single maps
+    const addressMap = new Map<string, any>();
+    const ownersMap = new Map<string, string>();
+    const valueMap = new Map<string, number>();
+
+    for (const batch of batchResults) {
+      // Merge address features
+      for (const f of batch.addressFeatures) {
+        addressMap.set(f.attributes.parcel_id, f.attributes);
+      }
+
+      // Merge owner features
+      for (const f of batch.ownersFeatures) {
+        ownersMap.set(f.attributes.parcel_id, f.attributes.owner_name);
+      }
+
+      // Merge tax features
+      for (const f of batch.taxesFeatures) {
         const parcelId = f.attributes.parcel_id;
-        // Q1: use previous year's value from Layer 12, Q3: use current value from Layer 12
-        const assessedValue = useLayer14 
-          ? (previousYearValueMap.get(parcelId) || 0)
+        const assessedValue = batch.useLayer14 
+          ? (batch.previousYearValueMap.get(parcelId) || 0)
           : (f.attributes.total_assessed_value || 0);
-        return [parcelId, assessedValue];
-      })
-    );
+        valueMap.set(parcelId, assessedValue);
+      }
+    }
 
-    // Combine data
+    // Combine data in the original order
     const results = parcelIds.map((parcelId) => ({
       parcelId,
       fullAddress: addressMap.has(parcelId) ? constructFullAddress(addressMap.get(parcelId)!) : "Address not available",
@@ -546,7 +574,7 @@ export const fetchPropertySummariesByParcelIdsHelper = async (
       assessedValue: valueMap.get(parcelId) || 0,
     }));
 
-    console.log(`[EGISClient] Found ${results.length} property summaries`);
+    console.log(`[EGISClient] Found ${results.length} property summaries (${addressMap.size} addresses, ${ownersMap.size} owners, ${valueMap.size} values)`);
     return results;
   } catch (error) {
     console.error("[EGISClient] Error fetching property summaries:", error);
