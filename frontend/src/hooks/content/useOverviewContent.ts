@@ -21,6 +21,7 @@ import { contentService } from '@services/content/ContentService';
 import { languageService } from '@services/content/LanguageService';
 import { useDateContext } from '@hooks/useDateContext';
 import { getOwnerDisclaimer } from '@utils/fiscalData';
+import { getFiscalYear } from '@utils/periods';
 import type { OverviewSectionData } from '@src/types';
 
 export interface OverviewCard {
@@ -77,6 +78,9 @@ export function useOverviewContent(data: OverviewSectionData): OverviewContent {
   const sharedLabels = contentService.getCommonContent().labels;
   const { date } = useDateContext();
   
+  // Get fiscal year from date
+  const fiscalYear = getFiscalYear(date);
+  
   // Determine if we're in the preliminary period (July-December)
   const nowMonth = date.getMonth();
   const isPrelimPeriod = nowMonth >= 6 && nowMonth < 12;
@@ -129,8 +133,8 @@ export function useOverviewContent(data: OverviewSectionData): OverviewContent {
     {
       icon: React.createElement('img', { src: content.cards.netTax.icon }),
       header: isPrelimPeriod 
-        ? content.cards.netTax.header.preliminary.replace('{year}', '26')
-        : content.cards.netTax.header.regular.replace('{year}', '25'),
+        ? content.cards.netTax.header.preliminary.replace('{year}', String(fiscalYear))
+        : content.cards.netTax.header.regular.replace('{year}', String(fiscalYear)),
       value: isPrelimPeriod 
         ? formatValue(data.totalBilledAmount)
         : formatValue(data.netTax)
