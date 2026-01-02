@@ -43,6 +43,7 @@ export interface PropertyTaxContent {
   taxRateDescription: React.ReactNode;
   taxRateHistoryLink: React.ReactNode;
   messageBoxContent: React.ReactNode;
+  personalExemptionMessageBoxContent: React.ReactNode;
   netTaxHeader: string;
   netTaxDescription: React.ReactNode;
   payTaxesButton: React.ReactNode;
@@ -85,6 +86,7 @@ export function usePropertyTaxesContent(props: PropertyTaxesSectionData): Proper
     isPrelimPeriod,
     displayFY,
     residentialExemptionMaxAmount: props.residentialExemptionAmount,
+    parcelId: props.parcelId,
   });
 
   const taxPresenter = new PropertyTaxPresenter({
@@ -94,6 +96,8 @@ export function usePropertyTaxesContent(props: PropertyTaxesSectionData): Proper
     parcelId: props.parcelId,
     residentialGranted,
     residentialExemptionPhase,
+    personalGranted,
+    personalExemptionPhase,
   });
 
   // Get tax rates for the display fiscal year
@@ -191,6 +195,7 @@ export function usePropertyTaxesContent(props: PropertyTaxesSectionData): Proper
     taxRateDescription: taxPresenter.createTaxRateDescription(),
     taxRateHistoryLink: taxPresenter.createTaxRateHistoryLink(),
     messageBoxContent: taxPresenter.createMessageBoxContent(),
+    personalExemptionMessageBoxContent: taxPresenter.createPersonalExemptionMessageBoxContent(),
     netTaxHeader: taxPresenter.createNetTaxHeader(isPrelimPeriod),
     netTaxDescription: taxPresenter.createNetTaxDescription(isPrelimPeriod),
     payTaxesButton: taxPresenter.createPayTaxesButton(),

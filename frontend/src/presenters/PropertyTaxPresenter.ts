@@ -18,7 +18,7 @@
  */
 
 import React from 'react';
-import { renderMarkdown, getMarkdownText } from '@utils/markdown/markdownRenderer';
+import { getMarkdownText } from '@utils/markdown/markdownRenderer';
 import { languageService, getStringValue, getUrlValue } from '@services/content/LanguageService';
 import { formatDateForDisplay, EXEMPTION_APPLICATION_DEADLINE_DATE } from '@utils/periods';
 
@@ -29,6 +29,8 @@ export interface PropertyTaxPresenterContext {
   parcelId: string;
   residentialGranted: boolean;
   residentialExemptionPhase: { phase: string };
+  personalGranted: boolean;
+  personalExemptionPhase: { phase: string };
 }
 
 export class PropertyTaxPresenter {
@@ -108,6 +110,56 @@ export class PropertyTaxPresenter {
     if (phase === 'after_deadline' || phase === 'after_grace') {
       return getMarkdownText(
         languageService.getPropertyTaxMessage('residential_deadline_passed', {
+          next_year: this.context.fiscalYear,
+          deadline_date: formatDateForDisplay(
+            EXEMPTION_APPLICATION_DEADLINE_DATE.getDate(this.context.calendarYear)
+          ),
+          next_fy: this.context.fiscalYear + 1
+        })
+      );
+    }
+    
+    if (phase === 'preliminary') {
+      return getMarkdownText(
+        languageService.getString('periods.MessageBox_messages.regular_message', {
+          current_fy: this.context.fiscalYear,
+          next_fy: this.context.fiscalYear + 1
+        })
+      );
+    }
+    
+    return getMarkdownText(
+      languageService.getString('periods.MessageBox_messages.regular_message', {
+        current_fy: this.context.fiscalYear,
+        next_fy: this.context.fiscalYear + 1
+      })
+    );
+  }
+
+  /**
+   * Create personal exemption message box content based on exemption phase
+   */
+  createPersonalExemptionMessageBoxContent(): string {
+    const phase = this.context.personalExemptionPhase.phase;
+    
+    if (phase === 'open') {
+      return getMarkdownText(
+        this.context.personalGranted 
+          ? languageService.getPropertyTaxMessage('personal_exemption_open_granted')
+          : languageService.getPropertyTaxMessage('personal_exemption_open_not_granted', {
+              personal_exemption_url: getUrlValue(
+                languageService.getPropertyTaxMessage('personal_exemption_url', { 
+                  current_fy: this.context.fiscalYear, 
+                  parcel_id: this.context.parcelId 
+                })
+              )
+            })
+      );
+    }
+    
+    if (phase === 'after_deadline' || phase === 'after_grace') {
+      return getMarkdownText(
+        languageService.getPropertyTaxMessage('personal_deadline_passed', {
           next_year: this.context.fiscalYear,
           deadline_date: formatDateForDisplay(
             EXEMPTION_APPLICATION_DEADLINE_DATE.getDate(this.context.calendarYear)

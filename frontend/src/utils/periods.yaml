@@ -56,6 +56,8 @@ periods:
     to_be_decided: "Amount to be decided"
     residential_exemption_granted: "**Granted:** We granted a Residential Exemption for this parcel."
     residential_exemption_not_granted: "**Not Granted:** This parcel did not receive a residential exemption on the third-quarter bill. You can [download the application]({residential_exemption_url}). See below for information on how to apply."
+    personal_exemption_open_granted: "**Granted:** We have granted a Personal Exemption for this property."
+    personal_exemption_open_not_granted: "**Not Granted:** This parcel did not receive a personal exemption on the third-quarter bill. You can [download the application]({personal_exemption_url}). See below for information on how to apply."
     personal_exemption_granted: "A Personal Exemption has been granted for this parcel."
     residential_open_phase: "You may qualify for a Residential Exemption. See below for application details."
     personal_open_phase: "You may qualify for a Personal Exemption. See below for application details."
@@ -75,7 +77,7 @@ periods:
     # Exemption descriptions
     residential_exemption_description: "If you own and live in your property as a primary residence, you may qualify for the residential exemption. This fiscal year, the residential exemption will save qualified Boston homeowners up to ${max_amount}. The exemption amount will be applied to your third-quarter tax bill issued in late December. If you didn't get the credit on your bill and believe you should have, you can apply for a residential exemption."
     residential_exemption_open_description:
-      text: "The Residential Exemption application deadline for fiscal year {next_year} is {deadline_date}."
+      text: "The Residential Exemption application deadline for fiscal year {fiscal_year} is {deadline_date}."
       links:
         how_to_apply:
           text: "Find out how to apply for the exemption."
@@ -110,8 +112,9 @@ periods:
     
     # URLs and links
     how_we_tax_url: "https://www.boston.gov/departments/assessing/how-we-tax-your-property"
-    tax_rate_history_url: "https://www.boston.gov/departments/assessing/property-tax-rates"
+    tax_rate_history_url: "/FY26-tax-rates.pdf"
     residential_exemption_url: "#/form?parcelId={parcel_id}&formType=residential"
+    personal_exemption_url: "#/form?parcelId={parcel_id}&formType=personal"
     personal_exemption_preliminary_description:
       text: "The Assessing Department provides tax relief programs for eligible taxpayers based on statutory requirements and locally adopted provisions. These programs are summarized below.\n\nIf you already submitted an application and have questions on its status, or if you have questions about any of these programs, please call our"
       links:
@@ -142,7 +145,7 @@ periods:
     # Tax rate section
     tax_rate_header: "FY{current_fy} TAX RATE"
     tax_rate_description: "For more information on the breakdown of the tax calculation, visit"
-    view_tax_rate_history: "View tax rate history (PDF)"
+    view_tax_rate_history: "View tax rate (PDF)"
     
   MessageBox_messages:
     january_message: "For information on abatement applications, see below."

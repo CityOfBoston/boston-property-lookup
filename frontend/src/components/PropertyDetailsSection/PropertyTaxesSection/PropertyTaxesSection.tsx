@@ -24,6 +24,7 @@ export default function PropertyTaxesSection(props: PropertyTaxesSectionProps) {
     taxRateDescription,
     taxRateHistoryLink,
     messageBoxContent,
+    personalExemptionMessageBoxContent,
     netTaxHeader,
     netTaxDescription,
     payTaxesButton,
@@ -56,6 +57,16 @@ export default function PropertyTaxesSection(props: PropertyTaxesSectionProps) {
               )
             }}>
               {String(messageBoxContent)}
+            </ReactMarkdown>
+          </MessageBox>
+
+          <MessageBox>
+            <ReactMarkdown components={{
+              strong: ({ node, ...props }) => (
+                <span style={{ fontWeight: 'bold' }} {...props} />
+              )
+            }}>
+              {String(personalExemptionMessageBoxContent)}
             </ReactMarkdown>
           </MessageBox>
         </>

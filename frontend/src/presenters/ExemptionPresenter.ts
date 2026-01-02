@@ -28,6 +28,7 @@ export interface ExemptionPresenterContext {
   isPrelimPeriod: boolean;
   displayFY: number;
   residentialExemptionMaxAmount: number;
+  parcelId: string;
 }
 
 export class ExemptionPresenter {
@@ -169,7 +170,7 @@ export class ExemptionPresenter {
         { withTime: true }
       );
       const interpolatedText = desc.text
-        .replace('{next_year}', String(this.context.fiscalYear + 1))
+        .replace('{fiscal_year}', String(this.context.fiscalYear))
         .replace('{deadline_date}', deadlineDate);
       
       return React.createElement(
@@ -219,6 +220,18 @@ export class ExemptionPresenter {
               },
               desc.phone.text
             )
+          )
+        ),
+        React.createElement(
+          'p',
+          { style: { marginTop: '1rem' } },
+          React.createElement(
+            'a',
+            {
+              href: `#/form?parcelId=${this.context.parcelId}&formType=residential`,
+              className: 'usa-link'
+            },
+            `Generate and download the residential exemption application for FY${this.context.fiscalYear + 1}`
           )
         )
       );
@@ -336,6 +349,33 @@ export class ExemptionPresenter {
           )
         ),
         this.createPersonalExemptionLinks()
+      );
+    } else if (phase === 'open') {
+      return React.createElement(
+        'div',
+        null,
+        React.createElement(
+          'p',
+          null,
+          renderMarkdown(
+            getMarkdownText(
+              languageService.getPropertyTaxMessage('personal_exemption_description')
+            )
+          )
+        ),
+        this.createPersonalExemptionLinks(),
+        React.createElement(
+          'p',
+          { style: { marginTop: '1rem' } },
+          React.createElement(
+            'a',
+            {
+              href: `#/form?parcelId=${this.context.parcelId}&formType=personal`,
+              className: 'usa-link'
+            },
+            `Generate and download the personal exemption application for FY${this.context.fiscalYear + 1}`
+          )
+        )
       );
     } else {
       return React.createElement(
