@@ -53,7 +53,7 @@ export default function PropertyValueSection(props: PropertyValueSectionProps) {
           <ResponsiveTable data={tableData} />
         </div>
         <div className={styles.printTable}>
-          <ResponsiveTable data={sortedData.slice().reverse().map(({ year, value }) => ({ [sharedLabels?.fiscalYear || 'Fiscal Year']: `FY${(year + 1).toString().slice(-2)}`, [sharedLabels?.assessedValue || 'Assessed Value']: value != null ? `$${value.toLocaleString()}` : (sharedLabels?.notAvailable || 'N/A') }))} />
+          <ResponsiveTable data={sortedData.slice().reverse().map(({ year, value }) => ({ [sharedLabels?.fiscalYear || 'Fiscal Year']: year.toString(), [sharedLabels?.assessedValue || 'Assessed Value']: value != null ? `$${value.toLocaleString()}` : (sharedLabels?.notAvailable || 'N/A') }))} />
         </div>
         {sortedData.length > 5 && (
           <button
