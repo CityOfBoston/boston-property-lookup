@@ -153,7 +153,7 @@ periods:
     regular_message: "You can see property tax information for all of **FY{current_fy}** below. We will make applications for **FY{next_fy}** available on **January 1, {next_fy}**."
     
   buttons:
-    pay_your_taxes: "Pay Your Taxes"
+    pay_your_taxes: "View Quarterly Tax Bill and Payment Information"
     print: "Print"
     
     # Links
