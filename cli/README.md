@@ -31,6 +31,76 @@ This data is used by the frontend for client-side fuzzy search functionality.
 
 > **Note**: Under normal operation, this runs automatically on a yearly schedule via `runYearlyParcelIdAddressPairingsUpdate` cloud function. Manual runs are typically only needed for setup or troubleshooting.
 
+---
+
+### `export_feedback.sh`
+
+Exports all feedback data from Firestore to a CSV file for analysis and reporting.
+
+#### Purpose
+
+This script calls the `exportFeedback` HTTPS cloud function, which:
+1. Fetches all feedback records from the Firestore `feedback` collection
+2. Converts the data to CSV format with all columns
+3. Uploads the CSV to Cloud Storage
+4. Returns a signed download URL
+5. Downloads the CSV file locally
+
+The exported CSV includes all feedback fields:
+- Document ID
+- Feedback type (property/general)
+- Timestamps
+- Property-specific fields (parcelId, sentiment)
+- General feedback fields (issueType, searchQuery)
+- User messages
+
+**CSV Features**:
+- Human-readable column headers (e.g., "Submission Date" instead of "createdAt")
+- Values formatted for easy reading ("Yes"/"No" for booleans, full descriptions for categories)
+- Proper escaping for special characters
+- Logical column ordering
+
+#### When to Use
+
+- **Weekly/Monthly Reports**: Export feedback for regular analysis
+- **Data Analysis**: Download data for external processing
+- **Issue Tracking**: Review user-reported bugs and suggestions
+- **Product Insights**: Analyze user sentiment and feedback trends
+- **Backup**: Create periodic backups of feedback data
+
+#### Usage
+
+```bash
+cd cli
+./export_feedback.sh
+```
+
+The script will:
+1. Prompt for environment selection (dev/prd)
+2. Call the export endpoint
+3. Automatically download the CSV
+4. Save it as `feedback-export-{env}-{timestamp}.csv`
+
+#### Example Output
+
+```bash
+$ ./export_feedback.sh
+Select environment to export feedback from:
+1) dev (default)
+2) prd
+Enter choice [1-2]: 1
+
+✓ SUCCESS: Export completed successfully!
+
+Exported 42 feedback record(s)
+
+Downloading CSV to: feedback-export-dev-2025-01-06_14-30-00.csv
+
+✓ Downloaded successfully!
+  File: feedback-export-dev-2025-01-06_14-30-00.csv
+  Size: 8234 bytes
+```
+
 ## Setup
 
 ### Prerequisites
@@ -265,7 +335,8 @@ The script respects the following environment variables:
 | `DEV_EXTERNAL_API_TOKEN` | API token for dev | For dev |
 | `PRD_PROJECT_ID` | Firebase project ID for production | For prod |
 | `PRD_EXTERNAL_API_TOKEN` | API token for production | For prod |
-| `GENERATE_PAIRINGS_URL` | Override function URL | Optional |
+| `GENERATE_PAIRINGS_URL` | Override function URL for pairings | Optional |
+| `EXPORT_FEEDBACK_URL` | Override function URL for feedback export | Optional |
 
 ## Best Practices
 
@@ -298,9 +369,10 @@ This script calls the [`generateAndStoreParcelIdAddressPairings`](../functions/s
 
 ### Related Functions
 
-- **Manual Trigger** (this script): `generate_and_store_pairings.sh`
+- **Manual Trigger (Pairings)**: `generate_and_store_pairings.sh`
 - **Scheduled Trigger**: `runYearlyParcelIdAddressPairingsUpdate` (Cloud Scheduler)
 - **Data Consumer**: `getCurrentParcelIdAddressPairings` (callable function)
+- **Manual Trigger (Feedback)**: `export_feedback.sh`
 
 ### Data Flow
 

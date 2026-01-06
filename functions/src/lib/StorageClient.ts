@@ -6,6 +6,7 @@ const gzip = promisify(zlib.gzip);
 const parcelIdAddressPairingsCacheBucket = admin.storage().bucket(process.env.PARCEL_ID_ADDRESS_PAIRINGS_CACHE_BUCKET!);
 const staticMapImageCacheBucket = admin.storage().bucket(process.env.STATIC_MAP_IMAGE_CACHE_BUCKET!);
 const pdfCacheBucket = admin.storage().bucket(process.env.PDF_CACHE_BUCKET!);
+const feedbackExportBucket = admin.storage().bucket(process.env.FEEDBACK_EXPORT_BUCKET!);
 
 /**
  * Retreives the signed URL of a static map image from the staticMapImageCacheBucket
@@ -304,4 +305,191 @@ export const getPdfBuffer = async (parcelId: string, formType: string, fiscalYea
   console.log(`[StorageClient] Retrieved PDF buffer from ${filename} (${buffer.length} bytes)`);
   
   return buffer;
+};
+
+/**
+ * Mapping of technical field names to human-readable column headers.
+ * This makes the exported CSV more accessible for non-technical users.
+ */
+const FEEDBACK_FIELD_LABELS: Record<string, string> = {
+  id: "Feedback ID",
+  type: "Feedback Type",
+  createdAt: "Submission Date",
+  feedbackMessage: "User Message",
+  parcelId: "Property Parcel ID",
+  hasPositiveSentiment: "Positive Feedback",
+  issueType: "Issue Category",
+  searchQuery: "Search Query",
+};
+
+/**
+ * Convert technical issue type codes to human-readable labels.
+ */
+const formatIssueType = (issueType: string): string => {
+  const issueTypeLabels: Record<string, string> = {
+    "not-found": "Property Not Found",
+    "bug": "Bug Report",
+    "suggestion": "Feature Suggestion",
+  };
+  return issueTypeLabels[issueType] || issueType;
+};
+
+/**
+ * Convert technical feedback type to human-readable label.
+ */
+const formatFeedbackType = (type: string): string => {
+  const typeLabels: Record<string, string> = {
+    "property": "Property Feedback",
+    "general": "General Feedback",
+  };
+  return typeLabels[type] || type;
+};
+
+/**
+ * Format boolean sentiment to human-readable text.
+ */
+const formatSentiment = (hasPositiveSentiment: boolean | undefined): string => {
+  if (hasPositiveSentiment === undefined || hasPositiveSentiment === null) {
+    return "";
+  }
+  return hasPositiveSentiment ? "Yes" : "No";
+};
+
+/**
+ * Convert feedback data array to CSV format string with human-readable headers.
+ *
+ * @param feedbackData Array of feedback documents.
+ * @return CSV string with all feedback data.
+ */
+const convertFeedbackToCsv = (feedbackData: Array<Record<string, any>>): string => {
+  if (feedbackData.length === 0) {
+    return "No feedback data available";
+  }
+
+  // Collect all possible column names from all records
+  const allColumns = new Set<string>();
+  feedbackData.forEach((record) => {
+    Object.keys(record).forEach((key) => allColumns.add(key));
+  });
+
+  // Define preferred column order for better readability
+  const preferredOrder = [
+    "id",
+    "type",
+    "createdAt",
+    "issueType",
+    "parcelId",
+    "hasPositiveSentiment",
+    "searchQuery",
+    "feedbackMessage",
+  ];
+
+  // Sort columns: preferred order first, then alphabetically for any remaining
+  const columns = Array.from(allColumns).sort((a, b) => {
+    const aIndex = preferredOrder.indexOf(a);
+    const bIndex = preferredOrder.indexOf(b);
+
+    if (aIndex !== -1 && bIndex !== -1) {
+      return aIndex - bIndex;
+    }
+    if (aIndex !== -1) return -1;
+    if (bIndex !== -1) return 1;
+
+    return a.localeCompare(b);
+  });
+
+  // Helper to escape CSV values
+  const escapeCsvValue = (value: any): string => {
+    if (value === null || value === undefined) {
+      return "";
+    }
+
+    const stringValue = String(value);
+
+    // If value contains comma, quote, or newline, wrap in quotes and escape internal quotes
+    if (stringValue.includes(",") || stringValue.includes('"') || stringValue.includes("\n")) {
+      return `"${stringValue.replace(/"/g, '""')}"`;
+    }
+
+    return stringValue;
+  };
+
+  // Helper to format cell values for better readability
+  const formatCellValue = (column: string, value: any): string => {
+    if (column === "type" && value) {
+      return formatFeedbackType(value);
+    }
+    if (column === "issueType" && value) {
+      return formatIssueType(value);
+    }
+    if (column === "hasPositiveSentiment") {
+      return formatSentiment(value);
+    }
+    return value;
+  };
+
+  // Build CSV header with human-readable labels
+  const csvHeaders = columns.map((col) => FEEDBACK_FIELD_LABELS[col] || col);
+  const csvRows: string[] = [csvHeaders.map(escapeCsvValue).join(",")];
+
+  // Build CSV rows with formatted values
+  feedbackData.forEach((record) => {
+    const row = columns.map((column) => {
+      const rawValue = record[column];
+      const formattedValue = formatCellValue(column, rawValue);
+      return escapeCsvValue(formattedValue);
+    });
+    csvRows.push(row.join(","));
+  });
+
+  return csvRows.join("\n");
+};
+
+/**
+ * Store feedback data as a CSV file in the feedback export bucket.
+ * Generates a timestamped filename for versioning.
+ *
+ * @param feedbackData Array of feedback documents to export.
+ * @return The signed URL to download the CSV file.
+ */
+export const storeFeedbackCsv = async (feedbackData: Array<Record<string, any>>): Promise<string> => {
+  console.log(`[StorageClient] Starting CSV export of ${feedbackData.length} feedback records`);
+
+  try {
+    // Convert to CSV
+    const csvData = convertFeedbackToCsv(feedbackData);
+    console.log(`[StorageClient] CSV data size: ${csvData.length} characters`);
+
+    // Generate filename with timestamp
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const filename = `feedback-export-${timestamp}.csv`;
+
+    // Upload to bucket
+    const file = feedbackExportBucket.file(filename);
+    await file.save(csvData, {
+      metadata: {
+        contentType: "text/csv",
+        metadata: {
+          recordCount: feedbackData.length.toString(),
+          exportedAt: new Date().toISOString(),
+        },
+      },
+    });
+
+    console.log(`[StorageClient] Successfully uploaded ${filename} to bucket`);
+
+    // Generate signed URL (valid for 1 hour)
+    const [signedUrl] = await file.getSignedUrl({
+      action: "read",
+      expires: Date.now() + 60 * 60 * 1000, // 1 hour from now
+      responseDisposition: `attachment; filename="${filename}"`,
+      responseType: "text/csv",
+    });
+
+    console.log(`[StorageClient] Generated signed URL for ${filename}`);
+    return signedUrl;
+  } catch (error) {
+    console.error("[StorageClient] Error storing feedback CSV:", error);
+    throw error;
+  }
 };

@@ -143,3 +143,129 @@ The function follows these steps:
 - Cached PDFs are reused for identical requests
 - Cache is fiscal-year specific (new PDFs generated each fiscal year)
 
+---
+
+### 3. `exportFeedback`
+
+**Purpose:** Exports all feedback data from Firestore to a CSV file for analysis and reporting.
+
+**Endpoint:** `POST /exportFeedback`
+
+**Access Level:** Internal (requires API key authentication)
+
+**Usage:**
+```bash
+curl -X POST "https://your-project.cloudfunctions.net/exportFeedback" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+**Request Body:** Empty JSON object `{}`
+
+**Response:**
+
+Success (200):
+```json
+{
+  "status": "success",
+  "message": "Feedback data exported successfully",
+  "data": {
+    "recordCount": 42,
+    "downloadUrl": "https://storage.googleapis.com/...",
+    "timestamp": "2025-01-06T19:30:00.000Z"
+  }
+}
+```
+
+No Data (200):
+```json
+{
+  "status": "success",
+  "message": "No feedback data available to export",
+  "data": {
+    "recordCount": 0,
+    "downloadUrl": null,
+    "timestamp": "2025-01-06T19:30:00.000Z"
+  }
+}
+```
+
+Error (500):
+```json
+{
+  "status": "error",
+  "message": "Failed to export feedback data",
+  "data": null
+}
+```
+
+**Features:**
+- Exports all feedback records from Firestore
+- Includes all possible columns (document ID, type, timestamps, all fields)
+- Converts to CSV format with proper escaping
+- Uploads to Cloud Storage with timestamp
+- Returns signed download URL (valid for 1 hour)
+- Handles both property and general feedback types
+
+**CSV Format:**
+
+The exported CSV uses human-readable column headers for easy analysis:
+
+| Column Header | Technical Field | Description | Values |
+|--------------|----------------|-------------|---------|
+| Feedback ID | `id` | Firestore document ID | Unique identifier |
+| Feedback Type | `type` | Type of feedback | "Property Feedback" or "General Feedback" |
+| Submission Date | `createdAt` | When feedback was submitted | ISO 8601 timestamp |
+| Issue Category | `issueType` | Type of issue (general feedback only) | "Property Not Found", "Bug Report", or "Feature Suggestion" |
+| Property Parcel ID | `parcelId` | Property identifier (property feedback only) | Parcel ID string |
+| Positive Feedback | `hasPositiveSentiment` | User sentiment (property feedback only) | "Yes" or "No" |
+| Search Query | `searchQuery` | Search term used (general feedback from search) | Text string |
+| User Message | `feedbackMessage` | Optional user comment | Text string |
+
+**Features:**
+- Column headers are in plain English (e.g., "Submission Date" instead of "createdAt")
+- Boolean values are formatted as "Yes"/"No" instead of true/false
+- Categorical values are expanded (e.g., "Bug Report" instead of "bug")
+- Columns are ordered logically (ID, type, date, then specific fields)
+- All text properly escaped for CSV format
+
+**Implementation Details:**
+
+The function follows these steps:
+1. Validates HTTP method (POST only)
+2. Fetches all documents from Firestore `feedback` collection
+3. Converts Firestore Timestamps to ISO strings
+4. Collects all unique column names from all records
+5. Converts to CSV with proper escaping for commas, quotes, newlines
+6. Uploads CSV to Cloud Storage with timestamped filename
+7. Generates signed download URL (1 hour expiration)
+8. Returns URL and metadata in response
+
+**Security:**
+- Internal endpoint (requires API key)
+- Rate limiting applied via FunctionsClient
+- Signed URLs expire after 1 hour
+- Only accessible with valid authentication token
+
+**CLI Integration:**
+
+Use the `export_feedback.sh` CLI script for easy access:
+```bash
+cd cli
+./export_feedback.sh
+```
+
+The script automatically:
+- Calls the endpoint with proper authentication
+- Parses the JSON response
+- Downloads the CSV file
+- Saves with environment and timestamp in filename
+
+**Storage:**
+- Bucket: `FEEDBACK_EXPORT_BUCKET` environment variable
+- Filename format: `feedback-export-{ISO_timestamp}.csv`
+- Content-Type: `text/csv`
+- Disposition: `attachment` (triggers download)
+- Metadata includes record count and export timestamp
+
