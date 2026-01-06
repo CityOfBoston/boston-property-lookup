@@ -67,12 +67,12 @@ periods:
     personal_preliminary_not_submitted: "**Not Granted:** This property did not receive a personal exemption in fiscal year {current_fy}."
     
     # Deadline messages
-    residential_deadline_passed: "The deadline for filing a Residential Exemption application for **FY{next_year}** was **{deadline_date}**.\n\nWe will make applications for **FY{next_fy}** available for download starting **Thursday, January 1, {next_fy}**. The current exemption amounts shown are for **FY{next_year}**."
-    personal_deadline_passed: "The deadline for filing a Personal Exemption application for **FY{next_year}** was **{deadline_date}**.\n\nWe will make applications for **FY{next_fy}** available for download starting **Thursday, January 1, {next_fy}**. The current exemption amounts shown are for **FY{next_year}**."
+    residential_deadline_passed: "The deadline for filing a Residential Exemption application for **FY{current_fy}** was **{deadline_date}**.\n\nWe will make applications for **FY{next_fy}** available for download starting **Thursday, January 1, {next_fy}**. The current exemption amounts shown are for **FY{current_fy}**."
+    personal_deadline_passed: "The deadline for filing a Personal Exemption application for **FY{current_fy}** was **{deadline_date}**.\n\nWe will make applications for **FY{next_fy}** available for download starting **Thursday, January 1, {next_fy}**. The current exemption amounts shown are for **FY{current_fy}**."
     
     # Personal exemption open phase messages
     personal_exemption_granted: "**Granted:** We have granted a Personal Exemption for this property"
-    personal_exemption_not_granted: "**Not granted:** To file a Personal Exemption Application for **FY{next_year}**, use the link below. The deadline for submission is **{deadline_date}**, at **12 a.m.** The current exemption amounts shown are for **FY{next_year}**.\n\n[Download Personal Exemptions Application (PDF)](#/form?parcelId={parcel_id}&formType=personal)"
+    personal_exemption_not_granted: "**Not granted:** To file a Personal Exemption Application for **FY{current_fy}**, use the link below. The deadline for submission is **{deadline_date}**, at **12 a.m.** The current exemption amounts shown are for **FY{current_fy}**.\n\n[Download Personal Exemptions Application (PDF)](#/form?parcelId={parcel_id}&formType=personal)"
     
     # Exemption descriptions
     residential_exemption_description: "If you own and live in your property as a primary residence, you may qualify for the residential exemption. This fiscal year, the residential exemption will save qualified Boston homeowners up to ${max_amount}. The exemption amount will be applied to your third-quarter tax bill issued in late December. If you didn't get the credit on your bill and believe you should have, you can apply for a residential exemption."

@@ -231,7 +231,7 @@ export class ExemptionPresenter {
               href: `#/form?parcelId=${this.context.parcelId}&formType=residential`,
               className: 'usa-link'
             },
-            `Generate and download the residential exemption application for FY${this.context.fiscalYear + 1}`
+            `Generate and download the residential exemption application for FY${this.context.fiscalYear}`
           )
         )
       );
@@ -373,7 +373,7 @@ export class ExemptionPresenter {
               href: `#/form?parcelId=${this.context.parcelId}&formType=personal`,
               className: 'usa-link'
             },
-            `Generate and download the personal exemption application for FY${this.context.fiscalYear + 1}`
+            `Generate and download the personal exemption application for FY${this.context.fiscalYear}`
           )
         )
       );
