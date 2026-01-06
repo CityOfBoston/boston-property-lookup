@@ -69,10 +69,10 @@ export default function ContactUsSection({ title }: ContactUsSectionProps) {
           {paragraphs.billing?.emailPrefix || 'or'}
           {' '}
           <a
-            href={paragraphs.billing?.email?.url || 'mailto:collecting@boston.org'}
+            href={paragraphs.billing?.email?.url || 'mailto:collecting@boston.gov'}
             className="usa-link"
           >
-            {paragraphs.billing?.email?.text || 'collecting@boston.org'}
+            {paragraphs.billing?.email?.text || 'collecting@boston.gov'}
           </a>
           .
         </div>

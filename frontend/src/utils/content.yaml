@@ -307,8 +307,8 @@ components:
           label: "City of Boston Collecting Division"
         emailPrefix: "or"
         email:
-          text: "collecting@boston.org"
-          url: "mailto:collecting@boston.org"
+          text: "collecting@boston.gov"
+          url: "mailto:collecting@boston.gov"
       values:
         text: "If you have questions about **property values**, please **call or email** the Assessing Department at"
         phone:

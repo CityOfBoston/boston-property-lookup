@@ -72,3 +72,4 @@ cli/.env
 
 # PDF generation test output
 functions/test/output/
+*.csv
