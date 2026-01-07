@@ -135,7 +135,10 @@ const presenter = new ExemptionPresenter({
   calendarYear: 2025,
   isPrelimPeriod: true,
   displayFY: 2026,
-  residentialExemptionMaxAmount: 3000
+  residentialExemptionMaxAmount: 3000,
+  parcelId: '123456',
+  residentialGranted: false,
+  personalGranted: false,
 });
 
 const message = presenter.createResidentialExemptionMessage('preliminary', true);

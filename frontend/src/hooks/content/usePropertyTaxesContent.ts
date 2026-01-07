@@ -87,6 +87,8 @@ export function usePropertyTaxesContent(props: PropertyTaxesSectionData): Proper
     displayFY,
     residentialExemptionMaxAmount: props.residentialExemptionAmount,
     parcelId: props.parcelId,
+    residentialGranted,
+    personalGranted,
   });
 
   const taxPresenter = new PropertyTaxPresenter({

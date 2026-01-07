@@ -29,6 +29,8 @@ export interface ExemptionPresenterContext {
   displayFY: number;
   residentialExemptionMaxAmount: number;
   parcelId: string;
+  residentialGranted: boolean;
+  personalGranted: boolean;
 }
 
 export class ExemptionPresenter {
@@ -222,7 +224,8 @@ export class ExemptionPresenter {
             )
           )
         ),
-        React.createElement(
+        // Only show PDF download link if exemption is NOT granted
+        !this.context.residentialGranted && React.createElement(
           'p',
           { style: { marginTop: '1rem' } },
           React.createElement(
@@ -364,7 +367,8 @@ export class ExemptionPresenter {
           )
         ),
         this.createPersonalExemptionLinks(),
-        React.createElement(
+        // Only show PDF download link if exemption is NOT granted
+        !this.context.personalGranted && React.createElement(
           'p',
           { style: { marginTop: '1rem' } },
           React.createElement(
