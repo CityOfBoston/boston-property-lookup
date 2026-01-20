@@ -209,7 +209,7 @@ export const WithAllSections: Story = {
           // Last Transaction
           salePrice: 850000,
           saleDate: '2023-06-15',
-          registryBookAndPlace: 'Book 12345, Page 678',
+          registryBookAndPage: 'Book 12345, Page 678',
 
           // Parking
           parkingSpots: 2,

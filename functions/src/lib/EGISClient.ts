@@ -1249,7 +1249,7 @@ export const fetchPropertyDetailsByParcelIdHelper = async (
       console.log(`[EGISClient] Sale date: raw=${date}, formatted=${formattedDate}`);
       return formattedDate;
     })(),
-    registryBookAndPlace: (() => {
+    registryBookAndPage: (() => {
       const registry = salesData.latest_bkgpcert || undefined;
       console.log(`[EGISClient] Registry book: ${registry}`);
       return registry;

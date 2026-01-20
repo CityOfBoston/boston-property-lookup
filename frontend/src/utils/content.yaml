@@ -184,7 +184,7 @@ components:
         labels:
           salePrice: "Sale Price"
           saleDate: "Sale Date"
-          registryBookAndPlace: "Registry Book and Place"
+          registryBookAndPage: "Registry Book and Page"
     buttons:
       seeMore: "See More"
       seeLess: "See Less"

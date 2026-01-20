@@ -186,7 +186,7 @@ export const Attributes: Story = {
               content: [
                 { label: 'Sale Price', value: '$850,000' },
                 { label: 'Sale Date', value: 'June 15, 2023' },
-                { label: 'Registry Book & Place', value: 'Book 12345, Page 678' },
+                { label: 'Registry Book & Page', value: 'Book 12345, Page 678' },
               ],
             },
           ],

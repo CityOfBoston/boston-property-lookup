@@ -183,7 +183,7 @@ export class PropertyDetails implements PropertyDetailsData {
     fireplaces?: string;
     salePrice?: string;
     saleDate?: string;
-    registryBookAndPlace?: string;
+    registryBookAndPage?: string;
 
     // Property Taxes fields
     propertyGrossTax: number;
@@ -238,7 +238,7 @@ export class PropertyDetails implements PropertyDetailsData {
         content: [
           {label: "Sale Price", value: data.salePrice ? `$${data.salePrice}` : undefined},
           {label: "Sale Date", value: data.saleDate},
-          {label: "Registry Book & Place", value: data.registryBookAndPlace}
+          {label: "Registry Book & Page", value: data.registryBookAndPage}
         ]
       }
     ];
