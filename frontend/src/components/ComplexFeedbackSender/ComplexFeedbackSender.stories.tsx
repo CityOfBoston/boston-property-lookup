@@ -34,7 +34,7 @@ const meta = {
           - Modal overlay with backdrop click to close
           - "Help us improve the site" header
           - Large text area for detailed feedback
-          - Character counter (200 characters max)
+          - Character counter (500 characters max, bumped up from initial 200 characters to match boston.gov zencity forms)
           - Close button with accessibility support
           - Analytics tracking integration
           - Error handling

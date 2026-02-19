@@ -50,7 +50,7 @@ export const FeedbackSender: React.FC<FeedbackSenderProps> = ({
 }) => {
   const [feedbackOption, setFeedbackOption] = useState<string | null>(null);
   const [feedbackText, setFeedbackText] = useState('');
-  const MAX_CHARACTERS = 200;
+  const MAX_CHARACTERS = 500;
   const analytics = useGoogleAnalytics();
   const performance = usePerformanceTracking('FeedbackSender');
 

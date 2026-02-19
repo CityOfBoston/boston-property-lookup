@@ -66,7 +66,7 @@ export const ComplexFeedbackSender: React.FC<ComplexFeedbackSenderProps> = ({
 }) => {
   const [feedbackText, setFeedbackText] = useState('');
   const [issueType, setIssueType] = useState<string>('');
-  const MAX_CHARACTERS = 200;
+  const MAX_CHARACTERS = 500;
   const analytics = useGoogleAnalytics();
   const performance = usePerformanceTracking('ComplexFeedbackSender');
 
