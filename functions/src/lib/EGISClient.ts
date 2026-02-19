@@ -28,7 +28,7 @@ export function getFiscalYearAndQuarter(date: Date): { year: number; quarter: st
  */
 
 import {PropertyDetailsData, PropertyDetails} from "../types";
-const baseUrl = "https://gisportal.boston.gov/arcgis/rest/services/Assessing/properties_boston_gov/MapServer";
+const baseUrl = process.env.EGIS_API_URL;
 const geomertricDataLayerUrl = `${baseUrl}/0`;
 
 /**
@@ -105,20 +105,31 @@ const salesDataLayerUrl = `${baseUrl}/11`;
  * parcel_id,bill_year,bill_number,total_assessed_value,gross_re_tax,resex_amt,
  * resex_value,net_re_tax,personal_ex_type_1,personal_ex_amt_1,
  * personal_ex_type_2,personal_ex_amt_2,cpa_tax,personal_exemption_flag,
- * persexempt_total,net_tax,total_billed_amt,residential_exemption_flag
+ * persexempt_total,net_tax,total_billed_amt,residential_exemption_flag,
+ * _38d_fine, street_betterment, bid_downtown, bid_greenway, bid_new_market
+ * 
+ * Field Mappings:
+ * - _38d_fine: 38D Fine amount (optional, can be null)
+ * - street_betterment: Street betterment charges (optional, can be null)
+ * - bid_downtown: BID Downtown assessment (optional, can be null)
+ * - bid_greenway: BID Greenway assessment (optional, can be null)
+ * - bid_new_market: BID New Market assessment (optional, can be null)
  */
 const taxesDataLayerUrl = `${baseUrl}/12`;
 /**
  * EGIS Schema Layer 13: Real Estate
  * parcel_id,fiscal_year,quarter,street_number,street_number_suffix,street_name,
  * apt_unit,city,location_zip_code,land_use,residential_exemption_flag,
- * property_type,property_class_description,property_code_description
+ * property_type,property_class_description,property_code_description, living_area,
+ * gross_area, land_area, owner, owner_mail_addressee, owner_mail_street_address, 
+ * owner_mail_city_and_state, owner_mail_zip_code
  */
 const realEstateDataLayerUrl = `${baseUrl}/13`;
 /**
  * EGIS Schema Layer 14: Preliminary Taxes (First Quarter - Q1)
  * parcel_id,bill_year,re_tax (Estimated Tax),cpa_tax (Community Preservation Amount),
- * preliminary_tax (Estimated Total First Half),residential_exemption_flag,personal_exemption_flag
+ * preliminary_tax (Estimated Total First Half),residential_exemption_flag,personal_exemption_flag,
+ * downtown_bid_amt,greenway_bid_amt,new_market_bid_amt
  * 
  * Field Mappings:
  * - re_tax: Estimated Tax for first half (maps to estimatedTotalFirstHalf)
@@ -126,6 +137,9 @@ const realEstateDataLayerUrl = `${baseUrl}/13`;
  * - preliminary_tax: Additional preliminary tax field
  * - residential_exemption_flag: Residential exemption indicator (available in both layers)
  * - personal_exemption_flag: Personal exemption indicator (available in both layers)
+ * - downtown_bid_amt: BID Downtown assessment (optional, can be null)
+ * - greenway_bid_amt: BID Greenway assessment (optional, can be null)
+ * - new_market_bid_amt: BID New Market assessment (optional, can be null)
  */
 const preliminaryTaxesDataLayerUrl = `${baseUrl}/14`;
 
@@ -470,10 +484,16 @@ export const fetchPropertySummariesByParcelIdsHelper = async (
       const parcelIdConditions = batchIds.map((id) => `parcel_id='${id}'`).join(" OR ");
 
       // Fetch address data from Layer 13 (Real Estate)
-      const addressQuery = `?where=${parcelIdConditions}&outFields=*&returnGeometry=false&f=json`;
+      let addressWhereClause = `(${parcelIdConditions})`;
+      if (fiscalYearAndQuarter) {
+        addressWhereClause += ` AND fiscal_year=${fiscalYearAndQuarter.year} AND quarter=${fiscalYearAndQuarter.quarter}`;
+      }
+      const addressQuery = `?where=${addressWhereClause}&outFields=*&returnGeometry=false&f=json`;
       let addressFeatures = await fetchEGISData(realEstateDataLayerUrl, addressQuery);
-      // Filter for highest fiscal year and quarter
-      addressFeatures = filterForHighestFiscalYearAndQuarter(addressFeatures);
+      // Filter for highest fiscal year and quarter if not specified
+      if (!fiscalYearAndQuarter) {
+        addressFeatures = filterForHighestFiscalYearAndQuarter(addressFeatures);
+      }
       
       // Fetch owner data from Layer 7 (Current Owners)
       let ownersWhereClause = `(${parcelIdConditions})`;
@@ -1056,9 +1076,9 @@ export const fetchPropertyDetailsByParcelIdHelper = async (
   console.log(`[EGISClient] Fetching real estate data for parcelId: ${parcelId}`);
   let realEstateQuery = `?where=parcel_id='${parcelId}'&outFields=*&returnGeometry=false&f=json`;
 
-  // Add fiscal year filtering if provided
+  // Add fiscal year and quarter filtering if provided
   if (fiscalYearAndQuarter) {
-    realEstateQuery = `?where=parcel_id='${parcelId}' AND fiscal_year=${fiscalYearAndQuarter.year}&outFields=*&returnGeometry=false&f=json`;
+    realEstateQuery = `?where=parcel_id='${parcelId}' AND fiscal_year=${fiscalYearAndQuarter.year} AND quarter=${fiscalYearAndQuarter.quarter}&outFields=*&returnGeometry=false&f=json`;
   }
 
   console.log(`[EGISClient] Real estate query: ${realEstateQuery}`);
@@ -1069,9 +1089,9 @@ export const fetchPropertyDetailsByParcelIdHelper = async (
     realEstateFeatures = await fetchEGISData(realEstateDataLayerUrl, realEstateQuery);
     console.log(`[EGISClient] Real estate data found: ${realEstateFeatures.length} records`);
 
-    // If no fiscal year specified, filter for highest (Layer 13 has no quarter field)
+    // If no fiscal year specified, filter for highest fiscal year and quarter
     if (!fiscalYearAndQuarter) {
-      realEstateFeatures = filterForHighestFiscalYearAndQuarter(realEstateFeatures, { hasQuarter: false });
+      realEstateFeatures = filterForHighestFiscalYearAndQuarter(realEstateFeatures);
       console.log(`[EGISClient] After filtering, real estate data: ${realEstateFeatures.length} records`);
     }
   } catch (error) {
@@ -1084,7 +1104,8 @@ export const fetchPropertyDetailsByParcelIdHelper = async (
   // Address data is already in realEstateData from Layer 13
   // Layer 13 contains: parcel_id,fiscal_year,quarter,street_number,street_number_suffix,street_name,
   // apt_unit,city,location_zip_code,land_use,residential_exemption_flag,
-  // property_type,property_class_description,property_code_description
+  // property_type,property_class_description,property_code_description,living_area,gross_area,
+  // owner,owner_mail_addressee,owner_mail_street_address,owner_mail_city_and_state,owner_mail_zip_code
   const addressData = realEstateData;
   console.log("[EGISClient] Address data from Layer 13:", addressData);
 
@@ -1164,6 +1185,20 @@ export const fetchPropertyDetailsByParcelIdHelper = async (
     fullAddress: constructFullAddress(addressData),
     owners: owners,
     imageSrc: "", // Not applicable for EGIS data
+    // Primary owner info from Layer 13
+    primaryOwnerInfo: {
+      owner: realEstateData.owner ? toCamelCase(realEstateData.owner) : undefined,
+      mailAddressee: realEstateData.owner_mail_addressee ? toCamelCase(realEstateData.owner_mail_addressee) : undefined,
+      mailStreetAddress: realEstateData.owner_mail_street_address ? toProperCase(realEstateData.owner_mail_street_address) : undefined,
+      mailCityAndState: realEstateData.owner_mail_city_and_state ? (() => {
+        const parts = toProperCase(realEstateData.owner_mail_city_and_state).split(" ");
+        if (parts.length > 1) {
+          parts[parts.length - 1] = parts[parts.length - 1].toUpperCase();
+        }
+        return parts.join(" ");
+      })() : undefined,
+      mailZipCode: realEstateData.owner_mail_zip_code || undefined,
+    },
     assessedValue: useLayer14 ? previousYearAssessedValue : (taxesData.total_assessed_value || 0), // Q1: use previous year's value, Q3: use current value
     propertyTypeCode: addressData.property_type || addressData.property_code_description || "Not available",
     propertyTypeDescription: addressData.property_class_description || "Not available",
@@ -1177,8 +1212,9 @@ export const fetchPropertyDetailsByParcelIdHelper = async (
     historicPropertyValues: historicalValues,
     // Property Attributes fields
     landUse: prioritizeValue(parseAfterDash(primaryResidentialAttrs.composite_land_use), parseAfterDash(condoAttrs.composite_land_use)) || parseAfterDash(realEstateData.land_use) || "Not available",
-    grossArea: undefined, // Not available in new schema
-    livingArea: undefined, // Not available in new schema
+    grossArea: realEstateData.gross_area || undefined, // From Layer 13
+    livingArea: realEstateData.living_area || undefined, // From Layer 13
+    landArea: realEstateData.land_area || undefined, // From Layer 13
     style: prioritizeValue(toProperCase(parseAfterDash(primaryResidentialAttrs.building_style)), toProperCase(parseAfterDash(condoAttrs.building_style))) || "Not available",
     storyHeight: prioritizeValue(toProperCase(primaryResidentialAttrs.story_height), toProperCase(condoAttrs.story_height)) || "Not available",
     floor: prioritizeValue(toProperCase(primaryResidentialAttrs.floor), toProperCase(condoAttrs.floor)) || undefined,
@@ -1269,6 +1305,16 @@ export const fetchPropertyDetailsByParcelIdHelper = async (
     communityPreservationAmount: taxesData.cpa_tax || 0, // Available in both layers
     netRealEstateTax: useLayer14 ? (taxesData.re_tax || 0) : (taxesData.net_re_tax || 0), // Layer 14: re_tax, Layer 12: net_re_tax
     estimatedTotalFirstHalf: useLayer14 ? (taxesData.re_tax || 0) : (taxesData.net_re_tax || 0), // Layer 14: re_tax (Estimated Tax), Layer 12: use net_re_tax for backward compatibility
+    // New optional fields from EGIS (can be null)
+    // street_betterment and _38d_fine are only available in Layer 12 (Q3)
+    streetBetterment: useLayer14 ? undefined : taxesData.street_betterment,
+    fine38d: useLayer14 ? undefined : taxesData._38d_fine,
+    // BID fields available in both layers but with different field names
+    // Layer 12: bid_downtown, bid_greenway, bid_new_market
+    // Layer 14: downtown_bid_amt, greenway_bid_amt, new_market_bid_amt
+    bidDowntown: useLayer14 ? taxesData.downtown_bid_amt : taxesData.bid_downtown,
+    bidGreenway: useLayer14 ? taxesData.greenway_bid_amt : taxesData.bid_greenway,
+    bidNewMarket: useLayer14 ? taxesData.new_market_bid_amt : taxesData.bid_new_market,
   });
 
   console.log(`[EGISClient] Property details completed for parcelId: ${parcelId}. Historical values count: ${Object.keys(historicalValues).length}`);

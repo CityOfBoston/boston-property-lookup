@@ -17,6 +17,8 @@ periods:
     exemption_application_deadline: "Exemption Application Deadline"
     new_fy_preliminary_tax_period_begins: "New FY Preliminary Tax Period Begins"
     abatement_grace_period_deadline: "Abatement 28 Day Grace Period Deadline"
+    bid_q3_payment_due: "BID 3rd Quarter Payment Due"
+    bid_q4_payment_due: "BID 4th Quarter Payment Due"
 
   # Dynamic messages for abatement phases - these change based on dates and fiscal years
   abatement_phases:

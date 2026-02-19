@@ -1,5 +1,6 @@
 import React from 'react';
 import styles from './FieldTable.module.scss';
+import type { RowMeta } from '@components/ResponsiveTable/ResponsiveTable';
 
 export interface FieldTableData {
   [key: string]: string | number | React.ReactNode;
@@ -7,6 +8,7 @@ export interface FieldTableData {
 
 interface FieldTableProps {
   data: FieldTableData[];
+  rowMeta?: RowMeta[];
   className?: string;
   activeRowIndex?: number | null;
   setActiveRowIndex?: (idx: number | null) => void;
@@ -21,6 +23,7 @@ interface FieldTableProps {
  */
 export const FieldTable: React.FC<FieldTableProps> = ({
   data,
+  rowMeta,
   className = '',
   activeRowIndex = null,
   setActiveRowIndex,
@@ -51,10 +54,19 @@ export const FieldTable: React.FC<FieldTableProps> = ({
         {data.map((row, rowIndex) => {
           const isActive = activeRowIndex === rowIndex;
           const isOpened = openedRowIndex === rowIndex;
+          const meta = rowMeta?.[rowIndex];
+          const rowClasses = [
+            styles.row,
+            isActive ? styles.activeRow : '',
+            meta?.isMaster ? styles.masterRow : '',
+            meta?.isChild ? styles.childRow : '',
+            meta?.isLastInGroup ? styles.groupDivider : '',
+          ].filter(Boolean).join(' ');
+
           return (
             <div
               key={rowIndex}
-              className={`${styles.row} ${isActive ? styles.activeRow : ''}`}
+              className={rowClasses}
               tabIndex={0}
               role="button"
               aria-expanded={isOpened}
@@ -105,4 +117,4 @@ export const FieldTable: React.FC<FieldTableProps> = ({
   );
 };
 
-export default FieldTable; 
+export default FieldTable;

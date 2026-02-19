@@ -32,4 +32,9 @@
   flex-wrap: wrap;
   align-items: center;
   white-space: nowrap;
+}
+
+/* Mobile group gap after last child in a group */
+.groupGap {
+  margin-bottom: 20px;
 } 

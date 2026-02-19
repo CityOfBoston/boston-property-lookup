@@ -57,4 +57,35 @@
   font-weight: bold;
   text-transform: uppercase;
   font-family: 'Montserrat', sans-serif;
+}
+
+/* Master parcel row: emphasized with a left accent border */
+.masterRow {
+  border-left: 4px solid #0071BC;
+  font-weight: 600;
+  background-color: #f0f7fc;
+
+  &:hover {
+    background-color: #e3eff9;
+  }
+  &.activeRow,
+  &:focus-visible {
+    background-color: #e3eff9;
+  }
+}
+
+/* Child parcel row: indented with lighter styling */
+.childRow {
+  padding-left: 20px;
+  border-left: 4px solid #dfe1e2;
+
+  .cell:first-child {
+    padding-left: 24px;
+  }
+}
+
+/* Visual separator after the last child in a group */
+.groupDivider {
+  border-bottom: 3px solid #dfe1e2;
+  margin-bottom: 0;
 } 

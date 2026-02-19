@@ -1,10 +1,22 @@
 /**
+ * A type representing the primary owner information from Layer 13.
+ */
+export interface PrimaryOwnerInfo {
+  owner?: string;
+  mailAddressee?: string;
+  mailStreetAddress?: string;
+  mailCityAndState?: string;
+  mailZipCode?: string;
+}
+
+/**
  * A type representing the data for the OverviewSection component.
  */
 export interface OverviewSectionData {
   fullAddress: string;
   owners: string[];
   imageSrc: string;
+  primaryOwnerInfo?: PrimaryOwnerInfo;
   assessedValue: number;
   propertyTypeCode: string;
   propertyTypeDescription?: string;
@@ -74,6 +86,12 @@ export interface PropertyTaxesSectionData {
   personalExemptionAmount2: number;
   estimatedTotalFirstHalf: number;
   totalBilledAmount: number;
+  // New optional fields from EGIS (can be null for most parcels)
+  streetBetterment?: number | null;
+  fine38d?: number | null;
+  bidDowntown?: number | null;
+  bidGreenway?: number | null;
+  bidNewMarket?: number | null;
 }
 
 /**
@@ -100,6 +118,7 @@ export class PropertyDetails implements PropertyDetailsData {
     fullAddress: string;
     owners: string[];
     imageSrc: string;
+    primaryOwnerInfo?: PrimaryOwnerInfo;
     assessedValue: number;
     propertyTypeCode: string;
     propertyTypeDescription?: string;
@@ -113,6 +132,7 @@ export class PropertyDetails implements PropertyDetailsData {
       landUse?: string;
       grossArea?: string;
       livingArea?: string;
+      landArea?: string;
       style?: string;
       storyHeight?: string;
       floor?: string;
@@ -162,6 +182,7 @@ export class PropertyDetails implements PropertyDetailsData {
     landUse?: string;
     grossArea?: string;
     livingArea?: string;
+    landArea?: string;
     style?: string;
     storyHeight?: string;
     floor?: string;
@@ -218,12 +239,19 @@ export class PropertyDetails implements PropertyDetailsData {
     netRealEstateTax?: number;
     estimatedTotalFirstHalf: number;
     totalBilledAmount: number;
+    // New optional fields from EGIS (can be null for most parcels)
+    streetBetterment?: number | null;
+    fine38d?: number | null;
+    bidDowntown?: number | null;
+    bidGreenway?: number | null;
+    bidNewMarket?: number | null;
   }) {
     // Construct overview section
     this.overview = {
       fullAddress: data.fullAddress,
       owners: data.owners,
       imageSrc: data.imageSrc,
+      primaryOwnerInfo: data.primaryOwnerInfo,
       assessedValue: data.assessedValue,
       propertyTypeCode: data.propertyTypeCode,
       propertyTypeDescription: data.propertyTypeDescription,
@@ -259,7 +287,7 @@ export class PropertyDetails implements PropertyDetailsData {
           title: `Outbuilding ${index + 1}`,
           content: [
             {label: "Type", value: building.type},
-            {label: "Size", value: building.size?.toString()},
+            {label: "Size", value: building.size != null ? `${Number(building.size).toLocaleString()} sq ft` : undefined},
             {label: "Quality", value: building.quality},
             {label: "Condition", value: building.condition},
           ].filter((field) => field.value),
@@ -285,8 +313,9 @@ export class PropertyDetails implements PropertyDetailsData {
               title: "General",
               content: [
                 {label: "Land Use", value: building.landUse},
-                {label: "Gross Area", value: building.grossArea ? `${building.grossArea} sq ft` : undefined},
-                {label: "Living Area", value: building.livingArea ? `${building.livingArea} sq ft` : undefined},
+                {label: "Gross Area", value: building.grossArea ? `${Number(building.grossArea).toLocaleString()} sq ft` : undefined},
+                {label: "Living Area", value: building.livingArea ? `${Number(building.livingArea).toLocaleString()} sq ft` : undefined},
+                {label: "Lot Size", value: building.landArea ? `${Number(building.landArea).toLocaleString()} sq ft` : undefined},
                 {label: "Style", value: building.style},
                 {label: "Story Height", value: building.storyHeight},
                 {label: "Floor", value: building.floor},
@@ -358,8 +387,9 @@ export class PropertyDetails implements PropertyDetailsData {
               title: "General",
               content: [
                 {label: "Land Use", value: data.landUse},
-                {label: "Gross Area", value: data.grossArea ? `${data.grossArea} sq ft` : undefined},
-                {label: "Living Area", value: data.livingArea ? `${data.livingArea} sq ft` : undefined},
+                {label: "Gross Area", value: data.grossArea ? `${Number(data.grossArea).toLocaleString()} sq ft` : undefined},
+                {label: "Living Area", value: data.livingArea ? `${Number(data.livingArea).toLocaleString()} sq ft` : undefined},
+                {label: "Lot Size", value: data.landArea ? `${Number(data.landArea).toLocaleString()} sq ft` : undefined},
                 {label: "Style", value: data.style},
                 {label: "Story Height", value: data.storyHeight},
                 {label: "Floor", value: data.floor},
@@ -422,8 +452,9 @@ export class PropertyDetails implements PropertyDetailsData {
           title: "General",
           content: [
             {label: "Land Use", value: data.landUse},
-            {label: "Gross Area", value: data.grossArea ? `${data.grossArea} sq ft` : undefined},
-            {label: "Living Area", value: data.livingArea ? `${data.livingArea} sq ft` : undefined},
+            {label: "Gross Area", value: data.grossArea ? `${Number(data.grossArea).toLocaleString()} sq ft` : undefined},
+            {label: "Living Area", value: data.livingArea ? `${Number(data.livingArea).toLocaleString()} sq ft` : undefined},
+            {label: "Lot Size", value: data.landArea ? `${Number(data.landArea).toLocaleString()} sq ft` : undefined},
             {label: "Style", value: data.style},
             {label: "Story Height", value: data.storyHeight},
             {label: "Floor", value: data.floor},
@@ -490,6 +521,11 @@ export class PropertyDetails implements PropertyDetailsData {
       personalExemptionAmount2: data.personalExemptionAmount2,
       estimatedTotalFirstHalf: data.estimatedTotalFirstHalf,
       totalBilledAmount: data.totalBilledAmount,
+      streetBetterment: data.streetBetterment,
+      fine38d: data.fine38d,
+      bidDowntown: data.bidDowntown,
+      bidGreenway: data.bidGreenway,
+      bidNewMarket: data.bidNewMarket,
     };
   }
 }

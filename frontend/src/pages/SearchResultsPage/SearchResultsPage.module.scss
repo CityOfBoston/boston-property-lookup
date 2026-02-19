@@ -88,3 +88,23 @@
     width: calc(100% + 2rem);
   }
 }
+
+.showMoreButton {
+  background: none;
+  border: none;
+  color: #0071bc;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px 0;
+  font-family: 'Montserrat', sans-serif;
+
+  &:hover {
+    color: #205493;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #0071bc;
+    outline-offset: 2px;
+  }
+}

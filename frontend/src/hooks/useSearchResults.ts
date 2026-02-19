@@ -1,10 +1,12 @@
 import { useState, useCallback, useRef } from 'react';
 import { fetchPropertySummariesByParcelIds } from './firebaseConfig';
 import { useParcelPairingsContext } from './useParcelPairingsContext';
-import type { PropertySearchResults } from '../types';
+import type { PropertySearchResults, ParcelGroup } from '../types';
+import { groupByMasterParcel } from '@utils/parcelGrouping';
 
 interface UseSearchResultsReturn {
   searchResults: PropertySearchResults | null;
+  groupedResults: ParcelGroup[];
   isLoading: boolean;
   error: Error | null;
   performSearch: (query: string) => Promise<void>;
@@ -12,6 +14,7 @@ interface UseSearchResultsReturn {
 
 export const useSearchResults = (): UseSearchResultsReturn => {
   const [searchResults, setSearchResults] = useState<PropertySearchResults | null>(null);
+  const [groupedResults, setGroupedResults] = useState<ParcelGroup[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const { search } = useParcelPairingsContext();
@@ -24,6 +27,7 @@ export const useSearchResults = (): UseSearchResultsReturn => {
   const performSearch = useCallback(async (query: string) => {
     if (!query.trim()) {
       setSearchResults(null);
+      setGroupedResults([]);
       setError(null);
       return;
     }
@@ -61,7 +65,7 @@ export const useSearchResults = (): UseSearchResultsReturn => {
       abortControllerRef.current = new AbortController();
       
       
-      // Use fuzzy search to find matching parcel IDs
+      // Use fuzzy search to find matching parcel IDs (now includes full-family expansion)
       const fuzzyResults = search(query);
       
       // Check if search was cancelled
@@ -71,22 +75,23 @@ export const useSearchResults = (): UseSearchResultsReturn => {
       
       if (fuzzyResults.length === 0) {
         setSearchResults({ results: [] });
+        setGroupedResults([]);
         return;
       }
 
       // Keep track of original order using a Map
       const orderMap = new Map(fuzzyResults.map((result, index) => [result.parcelId, index]));
       
-      // Extract parcel IDs from fuzzy search results and limit to 1000
-      const parcelIds = fuzzyResults.map(result => result.parcelId).slice(0, 500);
+      // Extract all parcel IDs from fuzzy search results (no artificial cap;
+      // the group limit in expandToFullFamilies is the real throttle)
+      const parcelIds = fuzzyResults.map(result => result.parcelId);
       
       // Check if search was cancelled
       if (abortControllerRef.current.signal.aborted) {
         return;
       }
       
-      
-      // Fetch property summaries for the found parcel IDs
+      // Fetch property summaries for all parcel IDs in one request
       const summaries = await fetchPropertySummariesByParcelIds(parcelIds);
       
       // Check if search was cancelled
@@ -103,14 +108,18 @@ export const useSearchResults = (): UseSearchResultsReturn => {
         });
       }
       
-      
       setSearchResults(summaries);
+
+      // Group results by master parcel prefix
+      const groups = groupByMasterParcel(summaries.results || []);
+      setGroupedResults(groups);
     } catch (err) {
       // Only handle error if search wasn't cancelled
       if (!abortControllerRef.current?.signal.aborted) {
         console.error('[useSearchResults] Error performing search:', err);
         setError(err instanceof Error ? err : new Error('Failed to perform search'));
         setSearchResults(null);
+        setGroupedResults([]);
       }
     } finally {
       // Only update loading state if search wasn't cancelled
@@ -137,8 +146,9 @@ export const useSearchResults = (): UseSearchResultsReturn => {
 
   return {
     searchResults,
+    groupedResults,
     isLoading,
     error,
     performSearch,
   };
-}; 
+};

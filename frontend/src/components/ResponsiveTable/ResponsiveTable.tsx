@@ -7,8 +7,15 @@ export interface TableData {
   [key: string]: string | number | React.ReactNode;
 }
 
+export interface RowMeta {
+  isMaster: boolean;
+  isChild: boolean;
+  isLastInGroup: boolean;
+}
+
 interface ResponsiveTableProps {
   data: TableData[];
+  rowMeta?: RowMeta[];
   showDetails?: boolean;
   showMapLink?: boolean;
   onLoad?: () => void;
@@ -25,6 +32,7 @@ interface ResponsiveTableProps {
  */
 export const ResponsiveTable: React.FC<ResponsiveTableProps> = ({
   data,
+  rowMeta,
   showDetails = false,
   showMapLink = false,
   onLoad,
@@ -46,31 +54,41 @@ export const ResponsiveTable: React.FC<ResponsiveTableProps> = ({
     if (showDetails) {
       // Get parcelId from the 'Parcel ID' field
       const parcelId = row['Parcel ID'] as string;
-      const detailsLink = (
-        <a
-          className="usa-link"
-          rel="noreferrer"
-          href={`#/details?parcelId=${parcelId}`}
-        >
-          {texts.viewDetails}
-        </a>
-      );
 
-      // For desktop view (FieldTable), split into separate columns
-      if (showMapLink) {
-        newRow['Details'] = detailsLink;
-        newRow[''] = (
+      // Only add details/map links for rows with an actual parcel ID
+      // (toggle rows like "Show all N units" have an empty Parcel ID)
+      if (parcelId) {
+        const detailsLink = (
           <a
-            className="usa-link usa-link--external"
+            className="usa-link"
             rel="noreferrer"
-            target="_blank"
-            href={`https://app01.cityofboston.gov/AssessingMap/?find=${parcelId}`}
+            href={`#/details?parcelId=${parcelId}`}
           >
-            {texts.openInMap}
+            {texts.viewDetails}
           </a>
         );
+
+        if (showMapLink) {
+          newRow['Details'] = detailsLink;
+          newRow[''] = (
+            <a
+              className="usa-link usa-link--external"
+              rel="noreferrer"
+              target="_blank"
+              href={`https://app01.cityofboston.gov/AssessingMap/?find=${parcelId}`}
+            >
+              {texts.openInMap}
+            </a>
+          );
+        } else {
+          newRow['Details'] = detailsLink;
+        }
       } else {
-        newRow['Details'] = detailsLink;
+        // Empty placeholders so columns still align
+        newRow['Details'] = '';
+        if (showMapLink) {
+          newRow[''] = '';
+        }
       }
     }
     return newRow;
@@ -116,6 +134,7 @@ export const ResponsiveTable: React.FC<ResponsiveTableProps> = ({
       <div className={styles.fieldTable}>
         <FieldTable
           data={processedData}
+          rowMeta={rowMeta}
           activeRowIndex={activeRowIndex}
           setActiveRowIndex={setActiveRowIndex}
           openedRowIndex={openedRowIndex}
@@ -123,20 +142,29 @@ export const ResponsiveTable: React.FC<ResponsiveTableProps> = ({
         />
       </div>
       <div className={styles.recordTable}>
-        {mobileData.map((row, idx) => (
-          <RecordTable
-            key={idx}
-            data={row}
-            rowIndex={idx}
-            activeRowIndex={activeRowIndex}
-            setActiveRowIndex={setActiveRowIndex}
-            openedRowIndex={openedRowIndex}
-            setOpenedRowIndex={setOpenedRowIndex}
-          />
-        ))}
+        {mobileData.map((row, idx) => {
+          const meta = rowMeta?.[idx];
+          const isLastInGroup = meta?.isLastInGroup ?? false;
+          return (
+            <div
+              key={idx}
+              className={isLastInGroup ? styles.groupGap : undefined}
+            >
+              <RecordTable
+                data={row}
+                rowIndex={idx}
+                rowMeta={meta}
+                activeRowIndex={activeRowIndex}
+                setActiveRowIndex={setActiveRowIndex}
+                openedRowIndex={openedRowIndex}
+                setOpenedRowIndex={setOpenedRowIndex}
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 };
 
-export default ResponsiveTable; 
+export default ResponsiveTable;

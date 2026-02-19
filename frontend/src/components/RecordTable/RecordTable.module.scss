@@ -46,4 +46,16 @@
   text-transform: uppercase;
   font-weight: bold;
   font-family: 'Montserrat', sans-serif;
+}
+
+/* Master parcel card: emphasized with left accent */
+.masterCard {
+  border-left: 4px solid #0071BC;
+  background-color: #f0f7fc;
+}
+
+/* Child parcel card: indented with subtle left border */
+.childCard {
+  margin-left: 16px;
+  border-left: 4px solid #dfe1e2;
 } 

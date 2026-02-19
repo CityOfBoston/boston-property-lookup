@@ -267,5 +267,14 @@ export class PropertyTaxPresenter {
       ' page.'
     );
   }
+
+  /**
+   * Create street betterment description
+   */
+  createStreetBettermentDescription(): React.ReactNode {
+    return getStringValue(
+      languageService.getString('components.PropertyTaxesSection.formula.streetBetterment.description')
+    );
+  }
 }
 

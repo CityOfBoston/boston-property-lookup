@@ -37,6 +37,16 @@ export const NEW_FY_PRELIMINARY_TAX_PERIOD_BEGINS = {
   getDate: (year: number) => new Date(year, 6, 1),
 };
 
+export const BID_Q3_PAYMENT_DUE_DATE = {
+  label: getTimepointLabel('bid_q3_payment_due'),
+  getDate: (year: number) => getNextMonday(new Date(year, 1, 1)), // First non-weekend day in February
+};
+
+export const BID_Q4_PAYMENT_DUE_DATE = {
+  label: getTimepointLabel('bid_q4_payment_due'),
+  getDate: (year: number) => getNextMonday(new Date(year, 4, 1)), // First non-weekend day in May
+};
+
 export const ABATEMENT_GRACE_PERIOD_DEADLINE = {
   label: getTimepointLabel('abatement_grace_period_deadline'),
   getDate: (year: number) => {

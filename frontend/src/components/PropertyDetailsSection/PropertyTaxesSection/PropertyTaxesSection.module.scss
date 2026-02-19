@@ -4,6 +4,7 @@
   font-size: 18px;
   margin: 0px;
 }
+
 .taxRateContainer {
   margin-bottom: 24px;
   display: flex;
@@ -45,9 +46,29 @@
   }
 }
 
+.netTaxSection {
+  padding-top: 12px;
+}
+
 .netTax {
   font-size: 20px;
   font-weight: bold;
+}
+
+.additionalChargesSection {
+  margin-top: 32px;
+  
+  @include main.at-media-max('mobile-lg') {
+    margin-top: 24px;
+  }
+
+  .header {
+    text-transform: uppercase;
+  }
+}
+
+.chargeTable {
+  margin-top: 16px;
 }
 
 .buttonContainer {

@@ -144,6 +144,7 @@ components:
         labels:
           landUse: "Land Use"
           livingArea: "Living Area"
+          lotSize: "Lot Size"
           style: "Style"
           storyHeight: "Story Height"
           floor: "Floor"
@@ -259,6 +260,34 @@ components:
           text: "Community Preservation Act"
           url: "https://www.boston.gov/departments/assessing/community-preservation-act"
         suffix: "page."
+      streetBetterment:
+        title: "Street Betterment"
+        description: "Street betterment assessments are charges for street improvements that benefit your property. These assessments are added to your tax bill."
+    additionalCharges:
+      streetBetterment:
+        title: "Street Betterment"
+        description: "Street betterment assessments are charges for street improvements that benefit your property. These assessments are added to your tax bill."
+        tableLabel:
+          description: "Description"
+          amount: "Amount"
+        tableRow: "Street Betterment"
+      fine38d:
+        title: "38D Fine"
+        description: "This is a fine imposed under Massachusetts General Law Chapter 59, Section 38D for failure to file required property tax documents."
+        tableLabel:
+          description: "Description"
+          amount: "Amount"
+        tableRow: "38D Fine"
+      bid:
+        title: "Business Improvement District (BID) Assessment"
+        description: "BID assessments are special charges for properties located within designated Business Improvement Districts. These funds support district-specific improvements and services."
+        tableLabel:
+          district: "BID District"
+          amount: "Amount"
+        districts:
+          downtown: "Downtown"
+          greenway: "Greenway"
+          newMarket: "New Market"
     buttons:
       payTaxes:
         text: "@periods.property_taxes.pay_your_taxes"
@@ -405,7 +434,9 @@ components:
 
   PropertySearchResults:
     heading: "PARCEL RESULTS"
-    resultsCount: "We found {count} ({number}) results."
+    resultsCount: "We found {count} ({number}) results in {groupCount} parcel groups."
+    showAllUnits: "Show all {count} units"
+    hideUnits: "Show fewer units"
     columnHeaders:
       parcelId: "@shared.labels.parcelId"
       address: "@shared.labels.address"

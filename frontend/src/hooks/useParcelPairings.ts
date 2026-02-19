@@ -6,6 +6,7 @@ import { useState, useEffect, useMemo } from 'react';
 import Fuse, { FuseResult } from 'fuse.js';
 import { getCurrentParcelIdAddressPairings } from './firebaseConfig';
 import { indexedDBService } from './useIndexedDB';
+import { getMasterPrefix } from '@utils/parcelGrouping';
 
 interface ParcelPairing {
   parcelId: string;
@@ -39,6 +40,66 @@ export function useParcelPairings(): UseParcelPairingsReturn {
       shouldSort: false
     });
   }, [pairings]);
+
+  // Build a prefix index for efficient family lookups
+  const prefixIndex = useMemo(() => {
+    const index = new Map<string, ParcelPairing[]>();
+    for (const p of pairings) {
+      const prefix = getMasterPrefix(p.parcelId);
+      let group = index.get(prefix);
+      if (!group) {
+        group = [];
+        index.set(prefix, group);
+      }
+      group.push(p);
+    }
+    return index;
+  }, [pairings]);
+
+  /**
+   * Given an ordered list of search results, expand each result's family
+   * so that the full set of siblings (same 7-digit prefix) is included.
+   * Groups appear in the order of their best-matching member.
+   * Newly added siblings are inserted right after the original match(es).
+   * @param maxGroups Limit how many unique groups to expand (0 = unlimited)
+   */
+  const expandToFullFamilies = (results: ParcelPairing[], maxGroups: number = 0): ParcelPairing[] => {
+    const seen = new Set<string>();
+    const expandedPrefixes = new Set<string>();
+    const expanded: ParcelPairing[] = [];
+
+    for (const result of results) {
+      if (seen.has(result.parcelId)) continue;
+      seen.add(result.parcelId);
+
+      const prefix = getMasterPrefix(result.parcelId);
+
+      // If we haven't expanded this family yet, pull in all siblings
+      if (!expandedPrefixes.has(prefix)) {
+        if (maxGroups > 0 && expandedPrefixes.size >= maxGroups) {
+          // Past the group limit: just add the matched result without expansion
+          expanded.push(result);
+          continue;
+        }
+        expandedPrefixes.add(prefix);
+        // Add the current match first
+        expanded.push(result);
+        // Pull in all siblings from the prefix index
+        const family = prefixIndex.get(prefix) || [];
+        for (const sibling of family) {
+          if (!seen.has(sibling.parcelId)) {
+            seen.add(sibling.parcelId);
+            expanded.push(sibling);
+          }
+        }
+      } else {
+        // Family was already expanded from an earlier match; this is a duplicate – skip
+        expanded.push(result);
+      }
+    }
+
+    return expanded;
+  };
 
   // Download and parse gzipped JSON from compressed data
   const downloadAndParsePairings = async (compressedData: string): Promise<ParcelPairing[]> => {
@@ -216,7 +277,8 @@ export function useParcelPairings(): UseParcelPairingsReturn {
           .map(m => m.pairing);
 
         if (sortedMatches.length > 0) {
-          return sortedMatches;
+          // Expand to full families so every group is complete
+          return expandToFullFamilies(sortedMatches);
         }
       }
 
@@ -355,8 +417,8 @@ export function useParcelPairings(): UseParcelPairingsReturn {
           return result.item;
         });
 
-      // Log detailed results for debugging
-      return sortedResults;
+      // Expand to full families (limit to top 50 groups for address searches)
+      return expandToFullFamilies(sortedResults, 50);
     } catch (error) {
       console.error('[useParcelPairings] Error in fuzzy search:', error);
       return [];

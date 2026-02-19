@@ -1,10 +1,22 @@
 /**
+ * A type representing the primary owner information from Layer 13.
+ */
+export interface PrimaryOwnerInfo {
+  owner?: string;
+  mailAddressee?: string;
+  mailStreetAddress?: string;
+  mailCityAndState?: string;
+  mailZipCode?: string;
+}
+
+/**
  * A type representing the data for the OverviewSection component.
  */
 export interface OverviewSectionData {
   fullAddress: string;
   owners: string[];
   imageSrc: string;
+  primaryOwnerInfo?: PrimaryOwnerInfo;
   assessedValue: number;
   propertyTypeCode: string;
   propertyTypeDescription?: string;
@@ -73,6 +85,12 @@ export interface PropertyTaxesSectionData {
   personalExemptionAmount2: number;
   estimatedTotalFirstHalf: number;
   totalBilledAmount: number;
+  // New optional fields from EGIS (can be null for most parcels)
+  streetBetterment?: number | null;
+  fine38d?: number | null;
+  bidDowntown?: number | null;
+  bidGreenway?: number | null;
+  bidNewMarket?: number | null;
 }
 
 /**
@@ -99,6 +117,7 @@ export class PropertyDetails implements PropertyDetailsData {
     fullAddress: string;
     owners: string[];
     imageSrc: string;
+    primaryOwnerInfo?: PrimaryOwnerInfo;
     assessedValue: number;
     propertyTypeCode: string;
     propertyTypeDescription?: string;
@@ -111,6 +130,7 @@ export class PropertyDetails implements PropertyDetailsData {
       landUse?: string;
       grossArea?: string;
       livingArea?: string;
+      landArea?: string;
       style?: string;
       storyHeight?: string;
       floor?: string;
@@ -155,6 +175,7 @@ export class PropertyDetails implements PropertyDetailsData {
     landUse?: string;
     grossArea?: string;
     livingArea?: string;
+    landArea?: string;
     style?: string;
     storyHeight?: string;
     floor?: string;
@@ -194,22 +215,29 @@ export class PropertyDetails implements PropertyDetailsData {
     personalExemptionAmount2: number;
     estimatedTotalFirstHalf: number;
     totalBilledAmount: number;
+    // New optional fields from EGIS (can be null for most parcels)
+    streetBetterment?: number | null;
+    fine38d?: number | null;
+    bidDowntown?: number | null;
+    bidGreenway?: number | null;
+    bidNewMarket?: number | null;
   }) {
     // Construct overview section
     this.overview = {
       fullAddress: data.fullAddress,
       owners: data.owners,
       imageSrc: data.imageSrc,
+      primaryOwnerInfo: data.primaryOwnerInfo,
       assessedValue: data.assessedValue,
-    propertyTypeCode: data.propertyTypeCode,
-    propertyTypeDescription: data.propertyTypeDescription,
+      propertyTypeCode: data.propertyTypeCode,
+      propertyTypeDescription: data.propertyTypeDescription,
       parcelId: data.parcelId,
       netTax: data.propertyNetTax,
       totalBilledAmount: data.totalBilledAmount,
       personalExemptionFlag: data.personalExemptionFlag,
       residentialExemptionFlag: data.residentialExemptionFlag,
       personalExemptionAmount: data.personalExemptionAmount,
-      residentialExemptionAmount: data.residentialExemptionAmount
+      residentialExemptionAmount: data.residentialExemptionAmount,
     };
 
     // Construct property value section
@@ -227,7 +255,7 @@ export class PropertyDetails implements PropertyDetailsData {
           title: `Outbuilding ${index + 1}`,
           content: [
             {label: "Type", value: building.type},
-            {label: "Size", value: building.size?.toString()},
+            {label: "Size", value: building.size != null ? `${Number(building.size).toLocaleString()} sq ft` : undefined},
             {label: "Quality", value: building.quality},
             {label: "Condition", value: building.condition}
           ].filter(field => field.value)
@@ -253,8 +281,9 @@ export class PropertyDetails implements PropertyDetailsData {
               title: "General",
               content: [
                 {label: "Land Use", value: building.landUse},
-                {label: "Gross Area", value: building.grossArea ? `${building.grossArea} sq ft` : undefined},
-                {label: "Living Area", value: building.livingArea ? `${building.livingArea} sq ft` : undefined},
+                {label: "Gross Area", value: building.grossArea ? `${Number(building.grossArea).toLocaleString()} sq ft` : undefined},
+                {label: "Living Area", value: building.livingArea ? `${Number(building.livingArea).toLocaleString()} sq ft` : undefined},
+                {label: "Lot Size", value: building.landArea ? `${Number(building.landArea).toLocaleString()} sq ft` : undefined},
                 {label: "Style", value: building.style},
                 {label: "Story Height", value: building.storyHeight},
                 {label: "Floor", value: building.floor},
@@ -321,8 +350,9 @@ export class PropertyDetails implements PropertyDetailsData {
               title: "General",
               content: [
                 {label: "Land Use", value: data.landUse},
-                {label: "Gross Area", value: data.grossArea ? `${data.grossArea} sq ft` : undefined},
-                {label: "Living Area", value: data.livingArea ? `${data.livingArea} sq ft` : undefined},
+                {label: "Gross Area", value: data.grossArea ? `${Number(data.grossArea).toLocaleString()} sq ft` : undefined},
+                {label: "Living Area", value: data.livingArea ? `${Number(data.livingArea).toLocaleString()} sq ft` : undefined},
+                {label: "Lot Size", value: data.landArea ? `${Number(data.landArea).toLocaleString()} sq ft` : undefined},
                 {label: "Style", value: data.style},
                 {label: "Story Height", value: data.storyHeight},
                 {label: "Floor", value: data.floor},
@@ -370,8 +400,9 @@ export class PropertyDetails implements PropertyDetailsData {
           title: "General",
           content: [
             {label: "Land Use", value: data.landUse},
-            {label: "Gross Area", value: data.grossArea ? `${data.grossArea} sq ft` : undefined},
-            {label: "Living Area", value: data.livingArea ? `${data.livingArea} sq ft` : undefined},
+            {label: "Gross Area", value: data.grossArea ? `${Number(data.grossArea).toLocaleString()} sq ft` : undefined},
+            {label: "Living Area", value: data.livingArea ? `${Number(data.livingArea).toLocaleString()} sq ft` : undefined},
+            {label: "Lot Size", value: data.landArea ? `${Number(data.landArea).toLocaleString()} sq ft` : undefined},
             {label: "Style", value: data.style},
             {label: "Story Height", value: data.storyHeight},
             {label: "Floor", value: data.floor},
@@ -432,7 +463,12 @@ export class PropertyDetails implements PropertyDetailsData {
       personalExemptionAmount1: data.personalExemptionAmount1,
       personalExemptionAmount2: data.personalExemptionAmount2,
       estimatedTotalFirstHalf: data.estimatedTotalFirstHalf,
-      totalBilledAmount: data.totalBilledAmount
+      totalBilledAmount: data.totalBilledAmount,
+      streetBetterment: data.streetBetterment,
+      fine38d: data.fine38d,
+      bidDowntown: data.bidDowntown,
+      bidGreenway: data.bidGreenway,
+      bidNewMarket: data.bidNewMarket,
     };
   }
 }
@@ -452,6 +488,17 @@ export interface PropertySearchResult {
  */
 export interface PropertySearchResults {
   results: PropertySearchResult[];
+}
+
+/**
+ * A group of parcels sharing the same 7-digit master prefix.
+ * The master parcel ends in '000'; children have non-zero suffixes.
+ */
+export interface ParcelGroup {
+  masterPrefix: string;
+  masterParcel: PropertySearchResult | null;
+  children: PropertySearchResult[];
+  allParcels: PropertySearchResult[];
 }
 
 export interface PropertySearchSuggestion {

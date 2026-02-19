@@ -1,5 +1,6 @@
 import React from 'react';
 import styles from './RecordTable.module.scss';
+import type { RowMeta } from '@components/ResponsiveTable/ResponsiveTable';
 
 export interface RecordTableData {
   [key: string]: string | number | React.ReactNode;
@@ -9,6 +10,7 @@ interface RecordTableProps {
   data: RecordTableData;
   className?: string;
   rowIndex?: number;
+  rowMeta?: RowMeta;
   activeRowIndex?: number | null;
   setActiveRowIndex?: (idx: number | null) => void;
   openedRowIndex?: number | null;
@@ -24,6 +26,7 @@ export const RecordTable: React.FC<RecordTableProps> = ({
   data,
   className = '',
   rowIndex = 0,
+  rowMeta,
   activeRowIndex = null,
   setActiveRowIndex,
   openedRowIndex = null,
@@ -39,9 +42,17 @@ export const RecordTable: React.FC<RecordTableProps> = ({
   const isActive = activeRowIndex === rowIndex;
   const isOpened = openedRowIndex === rowIndex;
 
+  const tableClasses = [
+    styles.recordTable,
+    className,
+    isActive ? styles.activeRow : '',
+    rowMeta?.isMaster ? styles.masterCard : '',
+    rowMeta?.isChild ? styles.childCard : '',
+  ].filter(Boolean).join(' ');
+
   return (
     <div
-      className={`${styles.recordTable} ${className} ${isActive ? styles.activeRow : ''}`}
+      className={tableClasses}
       tabIndex={0}
       role="button"
       aria-expanded={isOpened}
@@ -99,4 +110,4 @@ export const RecordTable: React.FC<RecordTableProps> = ({
   );
 };
 
-export default RecordTable; 
+export default RecordTable;
