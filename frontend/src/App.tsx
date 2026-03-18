@@ -3,6 +3,7 @@ import WelcomePage from '@pages/WelcomePage';
 import SearchResultsPage from '@pages/SearchResultsPage';
 import PropertyDetailsPage from '@pages/PropertyDetailsPage';
 import PdfGenerationPage from '@pages/PdfGenerationPage';
+import MasterParcelPage from '@pages/MasterParcelPage';
 import MaintenancePage from '@pages/MaintenancePage';
 import { ParcelPairingsProvider } from '@hooks/useParcelPairingsContext';
 import { DateProvider } from '@hooks/useDateContext';
@@ -28,6 +29,7 @@ export const App = () => {
                 <Route path="/" element={<WelcomePage />} />
                 <Route path="/search" element={<SearchResultsPage />} />
                 <Route path="/details" element={<PropertyDetailsPage />} />
+                <Route path="/master-parcel" element={<MasterParcelPage />} />
                 <Route path="/form" element={<PdfGenerationPage />} />
               </>
             )}

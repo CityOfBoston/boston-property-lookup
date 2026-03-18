@@ -5,6 +5,7 @@
   flex-direction: column;
   width: 100%;
   max-width: 100%;
+  min-width: 0;
 }
 
 .resultsArea {
@@ -13,6 +14,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  min-width: 0;
+  width: 100%;
 }
 
 .loadingContainer {
@@ -81,30 +84,11 @@
   margin-top: 24px;
   width: 100%;
   max-width: 100%;
-
-  @include main.at-media-max('mobile-lg') {
-    margin-left: -1rem;
-    margin-right: -1rem;
-    width: calc(100% + 2rem);
-  }
+  overflow-x: auto;
 }
 
-.showMoreButton {
-  background: none;
-  border: none;
-  color: #0071bc;
-  text-decoration: underline;
-  cursor: pointer;
-  font-size: 16px;
-  padding: 4px 0;
-  font-family: 'Montserrat', sans-serif;
-
-  &:hover {
-    color: #205493;
-  }
-
-  &:focus-visible {
-    outline: 2px solid #0071bc;
-    outline-offset: 2px;
-  }
+.loadMoreContainer {
+  display: flex;
+  justify-content: center;
+  padding: 24px 0;
 }

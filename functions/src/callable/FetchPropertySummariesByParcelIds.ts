@@ -50,6 +50,8 @@ export const fetchPropertySummariesByParcelIds = createCallable(async (data: { p
       address: summary.fullAddress,
       owners: [summary.owner],
       value: summary.assessedValue,
+      isMasterParcel: summary.isMasterParcel,
+      masterParcelId: summary.masterParcelId,
     }));
 
     console.log(`[FetchPropertySummariesByParcelIds] Successfully fetched ${results.length} summaries`);

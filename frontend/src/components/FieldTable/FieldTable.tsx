@@ -35,8 +35,7 @@ export const FieldTable: React.FC<FieldTableProps> = ({
     return null;
   }
 
-  // Extract keys from the first data item to use as headers
-  const keys = Object.keys(data[0]);
+  const keys = Object.keys(data[0]).filter(k => !k.startsWith('_'));
 
   return (
     <div className={`${styles.fieldTable} ${className}`}>

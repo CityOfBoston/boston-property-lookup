@@ -7,7 +7,7 @@ import {StandardResponse} from "../types";
 // Simple in-memory rate limiter
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 const RATE_LIMIT_WINDOW = 60000; // 1 minute
-const MAX_REQUESTS_PER_WINDOW = 500; // 30 requests per minute
+const MAX_REQUESTS_PER_WINDOW = 500; // 500 requests per minute
 
 /**
  * Simple rate limiting function
@@ -56,7 +56,7 @@ setInterval(() => {
  */
 export function createCallable(
   handler: (data: any, context: CallableRequest) => Promise<StandardResponse<any>>) {
-  return onCall(async (request) => {
+  return onCall({timeoutSeconds: 300, memory: "512MiB"}, async (request) => {
     try {
       console.log("[CallableFunction] Function called with data:", request.data);
 

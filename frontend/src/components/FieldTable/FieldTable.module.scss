@@ -2,7 +2,8 @@
 
 .fieldTable {
   width: 100%;
-  border: 1px solid #dfe1e2;
+  box-sizing: border-box;
+  border: 1px solid #3D4551;
   border-radius: 4px;
   overflow: hidden;
   font-family: 'Montserrat', sans-serif;
@@ -17,7 +18,8 @@
 .row {
   display: flex;
   width: 100%;
-  border-bottom: 1px solid #dfe1e2;
+  box-sizing: border-box;
+  border-bottom: 1px solid #3D4551;
   transition: background-color 0.2s ease;
   
   &:last-child {
@@ -36,15 +38,20 @@
 .headerRow {
   display: flex;
   width: 100%;
-  border-bottom: 1px solid #dfe1e2;
+  box-sizing: border-box;
+  border-bottom: 1px solid #3D4551;
   background-color: #f8f8f8;
 }
 
 .cell, .headerCell {
   flex: 1;
+  min-width: 0;
   padding: 12px 16px;
   display: flex;
   align-items: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
 }
 
 .headerCell {
@@ -59,33 +66,19 @@
   font-family: 'Montserrat', sans-serif;
 }
 
-/* Master parcel row: emphasized with a left accent border */
+/* Master/single parcel row: bold text */
 .masterRow {
-  border-left: 4px solid #0071BC;
   font-weight: 600;
-  background-color: #f0f7fc;
-
-  &:hover {
-    background-color: #e3eff9;
-  }
-  &.activeRow,
-  &:focus-visible {
-    background-color: #e3eff9;
-  }
 }
 
-/* Child parcel row: indented with lighter styling */
+/* Child parcel row: normal weight, lighter border */
 .childRow {
-  padding-left: 20px;
-  border-left: 4px solid #dfe1e2;
-
-  .cell:first-child {
-    padding-left: 24px;
-  }
+  font-weight: 400;
+  border-bottom: 1px solid #DFE1E2;
 }
 
 /* Visual separator after the last child in a group */
 .groupDivider {
-  border-bottom: 3px solid #dfe1e2;
+  border-bottom: 1px solid #3D4551;
   margin-bottom: 0;
 } 

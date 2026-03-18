@@ -16,6 +16,7 @@ interface ParcelPairing {
 interface UseParcelPairingsReturn {
   pairings: ParcelPairing[];
   fuse: Fuse<ParcelPairing> | null;
+  prefixIndex: Map<string, ParcelPairing[]>;
   isLoading: boolean;
   error: string | null;
   search: (query: string, thresholdOverride?: number) => ParcelPairing[];
@@ -62,8 +63,9 @@ export function useParcelPairings(): UseParcelPairingsReturn {
    * Groups appear in the order of their best-matching member.
    * Newly added siblings are inserted right after the original match(es).
    * @param maxGroups Limit how many unique groups to expand (0 = unlimited)
+   * @param maxChildrenPerGroup Limit siblings pulled in per group (0 = unlimited)
    */
-  const expandToFullFamilies = (results: ParcelPairing[], maxGroups: number = 0): ParcelPairing[] => {
+  const expandToFullFamilies = (results: ParcelPairing[], maxGroups: number = 0, maxChildrenPerGroup: number = 0): ParcelPairing[] => {
     const seen = new Set<string>();
     const expandedPrefixes = new Set<string>();
     const expanded: ParcelPairing[] = [];
@@ -74,26 +76,24 @@ export function useParcelPairings(): UseParcelPairingsReturn {
 
       const prefix = getMasterPrefix(result.parcelId);
 
-      // If we haven't expanded this family yet, pull in all siblings
       if (!expandedPrefixes.has(prefix)) {
         if (maxGroups > 0 && expandedPrefixes.size >= maxGroups) {
-          // Past the group limit: just add the matched result without expansion
           expanded.push(result);
           continue;
         }
         expandedPrefixes.add(prefix);
-        // Add the current match first
         expanded.push(result);
-        // Pull in all siblings from the prefix index
         const family = prefixIndex.get(prefix) || [];
+        let added = 0;
         for (const sibling of family) {
           if (!seen.has(sibling.parcelId)) {
+            if (maxChildrenPerGroup > 0 && added >= maxChildrenPerGroup) break;
             seen.add(sibling.parcelId);
             expanded.push(sibling);
+            added++;
           }
         }
       } else {
-        // Family was already expanded from an earlier match; this is a duplicate – skip
         expanded.push(result);
       }
     }
@@ -172,7 +172,7 @@ export function useParcelPairings(): UseParcelPairingsReturn {
 
 
   // Enhanced search function with improved ranking
-  const search = (query: string, _thresholdOverride?: number): ParcelPairing[] => {
+  const search = (query: string, thresholdOverride?: number): ParcelPairing[] => {
     if (!fuse || !query.trim()) return [];
 
   // Helper to normalize street suffixes
@@ -277,19 +277,19 @@ export function useParcelPairings(): UseParcelPairingsReturn {
           .map(m => m.pairing);
 
         if (sortedMatches.length > 0) {
-          // Expand to full families so every group is complete
-          return expandToFullFamilies(sortedMatches);
+          return expandToFullFamilies(sortedMatches.slice(0, 200), 0, 5);
         }
       }
 
       // Fall back to fuzzy search
+      const effectiveThreshold = thresholdOverride ?? 0.2;
       const searchOptions = {
         // @ts-ignore - Fuse.js types are incomplete
-        limit: 1000,  // Get all potential matches
-        includeScore: true,    // We need the Fuse.js scores
-        shouldSort: false,     // We'll do our own sorting based on custom scoring
-        threshold: 0.2,        // Strict matching
-        distance: 50,          // Keep matches close
+        limit: 1000,
+        includeScore: true,
+        shouldSort: false,
+        threshold: effectiveThreshold,
+        distance: Math.max(50, Math.round(effectiveThreshold * 250)),
         minMatchCharLength: 2,
         keys: [
           { name: "fullAddress", weight: 2 }
@@ -300,125 +300,105 @@ export function useParcelPairings(): UseParcelPairingsReturn {
 
 
 
-      // Score and sort results
+      // Determine query structure: does it start with a street number?
+      const queryHasNumber = /^\d/.test(parts[0]);
+      // Map query parts to semantic roles based on structure
+      // With number:    [number, streetName, suffix, ...]
+      // Without number: [streetName, suffix, ...]
+      const qNumberPart = queryHasNumber ? parts[0] : null;
+      const qStreetPart = queryHasNumber ? parts[1] : parts[0];
+      const qSuffixPart = queryHasNumber ? parts[2] : parts[1];
+
       const scoredResults = results.map((result: FuseResult<ParcelPairing>) => {
         let score = result.score || 1;
 
-
-        // Remove apartment numbers and zip codes from address for comparison
         const address = result.item.fullAddress.toLowerCase()
-          .replace(/\s+#\s*[\w-]+/g, '')  // Remove apartment numbers
-          .replace(/\s+\d{5}(?:-\d{4})?/g, '')  // Remove zip codes
-          .replace(/\s*,\s*/g, ' ');  // Replace commas with spaces
-        
-        // Split by spaces or hyphens, but keep hyphenated numbers together
+          .replace(/\s+#\s*[\w-]+/g, '')
+          .replace(/\s+\d{5}(?:-\d{4})?/g, '')
+          .replace(/\s*,\s*/g, ' ');
+
         const addressParts = address.split(/\s+/)
           .map(part => part.trim())
           .filter(part => part.length > 0);
-        
-        // Identify if this part is a city name (usually last or second to last part)
-        const isCityPart = (part: string, index: number) => {
-          const fromEnd = addressParts.length - index;
-          return fromEnd <= 2 && !normalizeStreetSuffix(part); // Not a street suffix
-        };
 
-        // Exact matches get highest priority
+        // Address structure is always [number, streetName, suffix, city...]
+        const addrNumber = addressParts[0] || '';
+        const addrStreet = addressParts[1] || '';
+        const addrSuffix = addressParts[2] || '';
+        const streetNum = parseInt(addrNumber.split('-')[0]) || 0;
+
         if (address === cleanQuery) {
           score *= 0.1;
-          return { item: result.item, score };
+          return { item: result.item, score, streetName: addrStreet, streetNum };
         }
-        
-        // Check each query part against address parts
-        parts.forEach((part: string, i: number) => {
-          // Number matching
-          if (/^\d+$/.test(part)) {
-            // Only check numbers at the start of address
-            if (i === 0 && addressParts[0]) {
-              // Strict number matching with range support
-              const queryNum = parseInt(part);
-              const [start, end] = addressParts[0].split('-').map(n => parseInt(n));
-              
-              if (isNaN(queryNum) || isNaN(start)) return;
-              
-              
-              // Handle ranges and exact matches
-              if (!isNaN(end)) {
-                // It's a range - check if number is within it (inclusive)
-                const min = Math.min(start, end);
-                const max = Math.max(start, end);
-                
-                if (queryNum >= min && queryNum <= max) {
-                  score *= 0.01; // Best score for number in range
-                } else {
-                  // Heavy penalty for numbers outside range
-                  score *= 50.0;
-                }
-              } else {
-                // Single number - must match exactly or heavy penalty
-                if (queryNum === start) {
-                  score *= 0.01; // Best score for exact match
-                } else {
-                  // Very heavy penalty for non-matching numbers
-                  score *= 50.0;
-                }
-              }
-            }
-          } 
-          // Word matching
-          else {
-            // Check if this is a city part
-            if (isCityPart(addressParts[i], i)) {
-              const cityPart = addressParts[i].toLowerCase();
-              const queryPart = part.toLowerCase();
-              
-              
-              if (cityPart === queryPart) {
-                score *= 0.8; // Minimal impact for matching city
-              } else {
-                score *= 1.2; // Very small penalty for non-matching city
-              }
-            }
-            // Street name matching with extreme priority
-            else if (i === 1 && addressParts[1]) {
-              const streetPart = addressParts[1].toLowerCase();
-              const queryPart = part.toLowerCase();
-              
-              
-              if (streetPart === queryPart) {
-                score *= 0.0001; // Ultra high priority for exact street match
-              } else if (streetPart.startsWith(queryPart) && queryPart.length >= 4) {
-                score *= 0.01; // High priority for substantial prefix match
-              } else {
-                score *= 200.0; // Extreme penalty for non-matching street
-              }
-            }
-            // Suffix matching with normalization
-            else if (i === 2 && addressParts[2]) {
-              const querySuffix = normalizeStreetSuffix(part);
-              const addressSuffix = normalizeStreetSuffix(addressParts[2]);
-              
-              
-              if (querySuffix === addressSuffix) {
-                score *= 0.1; // Good score for matching suffix
-              } else {
-                score *= 3.0; // Moderate penalty for non-matching suffix
-              }
+
+        // --- Street number scoring ---
+        if (qNumberPart) {
+          const queryNum = parseInt(qNumberPart);
+          const [start, end] = addrNumber.split('-').map(n => parseInt(n));
+
+          if (!isNaN(queryNum) && !isNaN(start)) {
+            if (!isNaN(end)) {
+              const min = Math.min(start, end);
+              const max = Math.max(start, end);
+              score *= (queryNum >= min && queryNum <= max) ? 0.1 : 10.0;
+            } else {
+              score *= (queryNum === start) ? 0.1 : 10.0;
             }
           }
-        });
+        }
 
-        return { item: result.item, score };
+        // --- Street name scoring (highest impact) ---
+        if (qStreetPart) {
+          const queryStreet = qStreetPart.toLowerCase();
+          const addrStreetLower = addrStreet.toLowerCase();
+
+          if (addrStreetLower === queryStreet) {
+            score *= 0.1;
+          } else if (addrStreetLower.startsWith(queryStreet) && queryStreet.length >= 3) {
+            score *= 0.3;
+          } else if (queryStreet.length >= 4 && addrStreetLower.includes(queryStreet)) {
+            score *= 0.6;
+          } else {
+            score *= 15.0;
+          }
+        }
+
+        // --- Suffix scoring ---
+        if (qSuffixPart) {
+          const querySuffix = normalizeStreetSuffix(qSuffixPart);
+          const addressSuffix = normalizeStreetSuffix(addrSuffix);
+
+          if (querySuffix && addressSuffix) {
+            score *= (querySuffix === addressSuffix) ? 0.5 : 2.0;
+          }
+        }
+
+        return { item: result.item, score, streetName: addrStreet, streetNum };
       });
 
-      // Sort by score and return results
-      const sortedResults = scoredResults
-        .sort((a: { score: number }, b: { score: number }) => a.score - b.score)
-        .map((result: { item: ParcelPairing, score: number }) => {
-          return result.item;
-        });
+      // Sort by score, then by street number ascending for same-street results
+      scoredResults.sort((a, b) => {
+        const scoreDiff = a.score - b.score;
+        if (scoreDiff !== 0) {
+          // Use a relative tolerance: treat scores within 10% of each other as equivalent
+          const avg = (a.score + b.score) / 2;
+          if (Math.abs(scoreDiff) > avg * 0.1) return scoreDiff;
+        }
+        if (a.streetName === b.streetName) return a.streetNum - b.streetNum;
+        return scoreDiff;
+      });
 
-      // Expand to full families (limit to top 50 groups for address searches)
-      return expandToFullFamilies(sortedResults, 50);
+      // Filter out results that score much worse than the best match.
+      // At higher thresholds we intentionally allow fuzzier matches through.
+      const scoreMultiplier = 50 * Math.pow(effectiveThreshold / 0.2, 2);
+      const bestScore = scoredResults[0]?.score ?? 1;
+      const maxAllowedScore = bestScore * scoreMultiplier;
+      const filteredResults = scoredResults
+        .filter((r: { score: number }) => r.score <= maxAllowedScore)
+        .map((result: { item: ParcelPairing, score: number }) => result.item);
+
+      return expandToFullFamilies(filteredResults.slice(0, 200), 50, 5);
     } catch (error) {
       console.error('[useParcelPairings] Error in fuzzy search:', error);
       return [];
@@ -439,6 +419,7 @@ export function useParcelPairings(): UseParcelPairingsReturn {
   return {
     pairings,
     fuse,
+    prefixIndex,
     isLoading,
     error,
     search,

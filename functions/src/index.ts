@@ -19,6 +19,7 @@ import {fetchPropertyDetailsByParcelId} from "./callable/FetchPropertyDetailsByP
 import {fetchPropertySummariesByParcelIds} from "./callable/FetchPropertySummariesByParcelIds";
 import {getCurrentParcelIdAddressPairings} from "./callable/GetCurrentParcelIdAddressPairings";
 import {generatePdf} from "./callable/GeneratePdf";
+import {fetchMasterParcelOverviewByParcelId} from "./callable/FetchMasterParcelOverviewByParcelId";
 
 // HTTP functions
 import {generateAndStoreParcelIdAddressPairings} from "./https/GenerateAndStoreParcelIdAddressPairings";
@@ -32,6 +33,7 @@ export {
   storePropertyFeedback,
   fetchPropertyDetailsByParcelId,
   fetchPropertySummariesByParcelIds,
+  fetchMasterParcelOverviewByParcelId,
   getCurrentParcelIdAddressPairings,
   generatePdf,
   generateAndStoreParcelIdAddressPairings,

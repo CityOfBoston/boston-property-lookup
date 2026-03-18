@@ -234,6 +234,7 @@ export const SearchBarContainer = ({
       cancelButtonText={searchBarContent.cancelButtonText}
       loadingText={searchBarContent.loadingText}
       noResultsText={searchBarContent.noResultsText}
+      suggestionsFooterText={searchBarContent.suggestionsFooterText}
       parcelIdPrefix={searchBarContent.parcelIdPrefix}
       searchInputAriaLabel={searchBarContent.searchInputAriaLabel}
       clearButtonAriaLabel={searchBarContent.clearButtonAriaLabel}

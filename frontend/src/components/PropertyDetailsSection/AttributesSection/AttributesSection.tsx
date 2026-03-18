@@ -9,6 +9,8 @@ import { useAttributesContent } from '@src/hooks/usePropertyDetailsContent';
 interface AttributesSectionProps {
   data: PropertyAttributesData;
   title: string;
+  childParcelCount?: number;
+  parcelId?: string;
 }
 
 // Helper function to check if an item is a category
@@ -28,7 +30,7 @@ const renderAttributeFields = (fields: PropertyAttributeField[], masterParcelIdL
           <strong>{field.label}:</strong>{' '}
           {field.label === masterParcelIdLabel ? (
             <a
-              href={`#/search?q=${field.value}`}
+              href={`#/master-parcel?parcelId=${field.value}`}
               className="usa-link usa-link--external"
               rel="noreferrer"
               target="_blank"
@@ -44,7 +46,7 @@ const renderAttributeFields = (fields: PropertyAttributeField[], masterParcelIdL
   );
 };
 
-export default function AttributesSection({ data, title }: AttributesSectionProps) {
+export default function AttributesSection({ data, title, childParcelCount, parcelId }: AttributesSectionProps) {
   const {
     sharedButtons,
     sharedLabels,
@@ -62,7 +64,6 @@ export default function AttributesSection({ data, title }: AttributesSectionProp
       <div className={`${styles.grid} ${showAllAttributes ? styles.expanded : ''}`}>
         {attributeGroups
           .filter(group => {
-            // Filter out empty groups
             if (Array.isArray(group.content)) {
               return group.content.some(item => {
                 if (isCategory(item)) {
@@ -73,30 +74,46 @@ export default function AttributesSection({ data, title }: AttributesSectionProp
             }
             return false;
           })
-          .map(group => (
-            <div key={group.title} className={styles.group}>
-              <h3>{group.title}</h3>
-              <div className={
-                // If any item is a category, use subgroupGrid, otherwise use directContent
-                Array.isArray(group.content) && group.content.some(isCategory) ? styles.subgroupGrid : styles.directContent
-              }>
-                {Array.isArray(group.content) && group.content.map((item, index) => {
-                  if (isCategory(item)) {
-                    // If it's a category, render it with its own header
-                    return (
-                      <div key={item.title || index} className={styles.subgroup}>
-                        <h4>{item.title}</h4>
-                        {renderAttributeFields(item.content, masterParcelIdLabel)}
-                      </div>
-                    );
-                  } else {
-                    // If it's a direct attribute field, render it
-                    return renderAttributeFields([item], masterParcelIdLabel);
-                  }
-                })}
+          .map((group, groupIndex) => {
+            const showTotalUnits = groupIndex === 0 && (childParcelCount ?? 0) > 0;
+            return (
+              <div key={group.title} className={styles.group}>
+                <h3>{group.title}</h3>
+                <div className={
+                  Array.isArray(group.content) && group.content.some(isCategory) ? styles.subgroupGrid : styles.directContent
+                }>
+                  {Array.isArray(group.content) && group.content.map((item, index) => {
+                    if (isCategory(item)) {
+                      return (
+                        <div key={item.title || index} className={styles.subgroup}>
+                          <h4>{item.title}</h4>
+                          {renderAttributeFields(item.content, masterParcelIdLabel)}
+                        </div>
+                      );
+                    } else {
+                      return renderAttributeFields([item], masterParcelIdLabel);
+                    }
+                  })}
+                </div>
+                {showTotalUnits && (
+                  <ul>
+                    <li>
+                      <strong>Total units:</strong> {childParcelCount}{' '}
+                      <a
+                        className="usa-link usa-link--external"
+                        href={`#/master-parcel?parcelId=${parcelId}`}
+                        rel="noreferrer"
+                        target="_blank"
+                        style={{ fontWeight: 700 }}
+                      >
+                        View associated parcels
+                      </a>
+                    </li>
+                  </ul>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
       </div>
       <button
         id="attributes_toggle_button"

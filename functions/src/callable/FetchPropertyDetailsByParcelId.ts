@@ -65,7 +65,6 @@ export const fetchPropertyDetailsByParcelId = createCallable(async (data: { parc
   // Fetch property details and geometry using EGISClient (single call)
   const propertyDetailsWithGeometry = await fetchPropertyDetailsByParcelIdHelper(data.parcelId, fiscalYearAndQuarter);
 
-  // Extract property details and geometry
   const {geometry, ...propertyDetails} = propertyDetailsWithGeometry;
 
   // Check if property was found (not the default "Property not found" case)

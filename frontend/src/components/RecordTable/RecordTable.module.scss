@@ -2,7 +2,8 @@
 
 .recordTable {
   width: 100%;
-  max-width: 100%; /* Ensure table doesn't overflow container */
+  max-width: 100%;
+  box-sizing: border-box;
   border: 1px solid #1B1B1B;
   overflow: hidden;
 }
@@ -48,14 +49,12 @@
   font-family: 'Montserrat', sans-serif;
 }
 
-/* Master parcel card: emphasized with left accent */
+/* Master/single parcel card: bold text */
 .masterCard {
-  border-left: 4px solid #0071BC;
-  background-color: #f0f7fc;
+  font-weight: 600;
 }
 
-/* Child parcel card: indented with subtle left border */
+/* Child parcel card: normal weight */
 .childCard {
-  margin-left: 16px;
-  border-left: 4px solid #dfe1e2;
+  font-weight: 400;
 } 

@@ -1,18 +1,52 @@
 @use '@styles/main' as main;
 
-.title {
-  width: 100%;
+.titleRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
   border-bottom: 3px solid black;
+  margin-bottom: 32px;
+
+  @include main.at-media-max('mobile-lg') {
+    margin-bottom: 24px;
+  }
+}
+
+.title {
+  flex: 1;
   margin: 0;
   text-transform: uppercase;
   font-size: 24px;
   font-weight: bold;
   font-family: 'Montserrat', sans-serif;
-  margin-bottom: 32px;
+  border-bottom: none;
 
   @include main.at-media-max('mobile-lg') {
     font-size: 20px;
-    margin-bottom: 24px;
+  }
+}
+
+.copyLinkButton {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  color: #71767a;
+  transition: color 0.15s ease, background-color 0.15s ease;
+
+  &:hover {
+    color: #1b1b1b;
+    background-color: #f0f0f0;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #2491ff;
+    outline-offset: 2px;
   }
 }
 
@@ -46,10 +80,16 @@
     padding: 0 !important;
     margin: 0 0 2px 0 !important;
   }
+  .titleRow {
+    margin-bottom: 2px !important;
+  }
   .title {
     font-size: 13px !important;
     margin: 8px 0 2px 0 !important;
     padding: 0 !important;
+  }
+  .copyLinkButton {
+    display: none !important;
   }
   * {
     font-size: 12px !important;

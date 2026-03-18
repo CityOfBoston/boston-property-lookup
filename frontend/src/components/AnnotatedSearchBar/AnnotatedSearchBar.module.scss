@@ -209,13 +209,15 @@
   border: 1px solid #D2D2D2;
   border-radius: 4px;
   z-index: 1000;
-  max-height: calc(0.8 * min(calc(8 * (48px + 1px)), calc(100vh - var(--search-bar-bottom) - 16px))); 
-  overflow-y: auto;
+  max-height: calc(0.8 * min(calc(8 * (48px + 1px)), calc(100vh - var(--search-bar-bottom) - 16px)));
+  overflow: hidden;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   display: none; // Hide by default
 
   &:not(:empty) {
-    display: block; // Show only when there's content
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
   }
   }
 
@@ -274,6 +276,39 @@
   }
 }
 
+.suggestionsList {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.suggestionsFooter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-top: 1px solid #d2d2d2;
+  background-color: #f7f9fa;
+  flex-shrink: 0;
+}
+
+.suggestionsFooterIcon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  opacity: 0.85;
+  display: block;
+}
+
+.suggestionsFooterText {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: #565c65;
+  font-family: Montserrat, sans-serif;
+}
+
 .suggestionItem {
   display: flex;
   justify-content: space-between;
@@ -285,7 +320,7 @@
   box-sizing: border-box;
   background: white;
 
-  &:last-child {
+  .suggestionsList &:last-child {
     border-bottom: none;
   }
 
@@ -553,11 +588,20 @@
 
 .modalSuggestions {
   flex: 1;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   overflow-x: hidden;
   padding: 0;
   width: 100%;
   box-sizing: border-box;
+}
+
+.modalSuggestionsList {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .modalSuggestionItem {
@@ -576,7 +620,7 @@
     background-color: #e6f3ff;
   }
 
-  &:last-child {
+  .modalSuggestionsList &:last-child {
     border-bottom: none;
   }
 
@@ -593,7 +637,6 @@
 
   @include at-media-max('mobile-lg') {
     padding: 0.75rem;
-    border-bottom: none;
 
     .fullAddress {
       font-size: 18px !important;

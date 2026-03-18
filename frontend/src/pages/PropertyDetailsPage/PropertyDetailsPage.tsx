@@ -163,7 +163,7 @@ export default function PropertyDetailsPage() {
       name: sectionNames.value.name,
       component: (
         <div onFocus={() => trackSectionView('value')}>
-          <PropertyValueSection {...propertyDetails.propertyValue} title={sectionNames.value.name} />
+          <PropertyValueSection {...propertyDetails.propertyValue} parcelId={parcelId} childParcelCount={propertyDetails.overview.childParcelCount} title={sectionNames.value.name} />
         </div>
       ),
     },
@@ -171,7 +171,7 @@ export default function PropertyDetailsPage() {
       name: sectionNames.attributes.name,
       component: (
         <div onFocus={() => trackSectionView('attributes')}>
-          <AttributesSection data={propertyDetails.propertyAttributes} title={sectionNames.attributes.name} />
+          <AttributesSection data={propertyDetails.propertyAttributes} title={sectionNames.attributes.name} childParcelCount={propertyDetails.overview.childParcelCount} parcelId={parcelId} />
         </div>
       ),
     },

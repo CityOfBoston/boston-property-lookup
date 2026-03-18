@@ -6,6 +6,7 @@ interface PropertyDetailsCardProps {
   header: string;
   value: string;
   isGrey?: boolean;
+  footer?: React.ReactNode;
 }
 
 const PropertyDetailsCard: React.FC<PropertyDetailsCardProps> = ({
@@ -13,6 +14,7 @@ const PropertyDetailsCard: React.FC<PropertyDetailsCardProps> = ({
   header,
   value,
   isGrey = false,
+  footer,
 }) => {
   return (
     <div className={`${styles.card} ${isGrey ? styles.grey : ''}`}>
@@ -21,6 +23,7 @@ const PropertyDetailsCard: React.FC<PropertyDetailsCardProps> = ({
         <span className={styles.headerText}>{header}</span>
       </div>
       <div className={styles.value}>{value}</div>
+      {footer && <div className={styles.footer}>{footer}</div>}
     </div>
   );
 };

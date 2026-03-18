@@ -22,6 +22,8 @@ interface AnnotatedSearchBarProps {
   // Loading states
   loadingText?: string;
   noResultsText?: string;
+  /** Shown at bottom of suggestion dropdown (main and follow-up search). */
+  suggestionsFooterText?: string;
   parcelIdPrefix?: string;
   
   // Aria labels
@@ -61,6 +63,7 @@ export const AnnotatedSearchBar: React.FC<AnnotatedSearchBarProps> = ({
   // Loading states
   loadingText,
   noResultsText,
+  suggestionsFooterText = "Didn't find your property? Click 'Search' or press 'Enter' to view all results.",
   parcelIdPrefix,
   
   // Aria labels
@@ -256,6 +259,25 @@ export const AnnotatedSearchBar: React.FC<AnnotatedSearchBarProps> = ({
     }
   };
 
+  const showSuggestionsPanelContent =
+    loading || suggestions.length > 0 || value.trim().length >= 1;
+
+  const suggestionsFooter = showSuggestionsPanelContent ? (
+    <div
+      className={styles.suggestionsFooter}
+      role="note"
+      aria-live="polite"
+    >
+      <img
+        src="/cob-uswds/img/usa-icons/info.svg"
+        alt=""
+        className={styles.suggestionsFooterIcon}
+        aria-hidden
+      />
+      <span className={styles.suggestionsFooterText}>{suggestionsFooterText}</span>
+    </div>
+  ) : null;
+
   return (
     <>
     <div className={styles.searchBarContainer} ref={searchBarRef}>
@@ -329,50 +351,60 @@ export const AnnotatedSearchBar: React.FC<AnnotatedSearchBarProps> = ({
 
         {/* Desktop suggestions */}
         {!isMobile && (
-      <div 
+      <div
         id="search-suggestions"
         className={styles.suggestionsContainer}
         style={{ '--search-bar-bottom': `${searchBarBottom}px` } as React.CSSProperties}
-        role="listbox"
         aria-label="Search suggestions"
       >
-            {showSuggestions && (loading ? (
-          <div className={styles.loadingContainer} role="status">
-            <div className={styles.loadingSpinner} aria-hidden="true" />
-            <p className={styles.loadingText}>{loadingText}</p>
-          </div>
-        ) : suggestions.length > 0 ? (
-          suggestions.map((suggestion, index) => (
-            <div 
-              key={`${suggestion.parcelId}-${index}`} 
-              id={`suggestion-${index}`}
-              className={`${styles.suggestionItem} ${selectedIndex === index ? styles.selected : ''}`}
-              onMouseDown={(e) => handleSuggestionClick(suggestion, e)}
-              onMouseEnter={() => setSelectedIndex(index)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  handleSuggestionClick(suggestion, e);
-                }
-              }}
-              role="option"
-              aria-selected={selectedIndex === index}
-              tabIndex={0}
-            >
-              <div className={styles.suggestionContent}>
-                <img src="/cob-uswds/img/usa-icons/location_on.svg" alt="" className={styles.locationIcon} aria-hidden="true" />
-                <div className={styles.addressContainer}>
-                  <p className={styles.fullAddress}>{suggestion.fullAddress}</p>
-                  <p className={styles.parcelId}>{parcelIdPrefix}{suggestion.parcelId}</p>
-                </div>
-              </div>
-            </div>
-          ))
-            ) : value.trim().length >= 1 ? (
-              <div className={styles.loadingContainer} role="status">
-                <p className={styles.loadingText}>{noResultsText}</p>
-              </div>
-            ) : null)}
+            {showSuggestions && showSuggestionsPanelContent && (
+              <>
+                {loading ? (
+                  <div className={styles.loadingContainer} role="status">
+                    <div className={styles.loadingSpinner} aria-hidden="true" />
+                    <p className={styles.loadingText}>{loadingText}</p>
+                  </div>
+                ) : suggestions.length > 0 ? (
+                  <div
+                    className={styles.suggestionsList}
+                    role="listbox"
+                    aria-label="Search suggestions"
+                  >
+                    {suggestions.map((suggestion, index) => (
+                      <div
+                        key={`${suggestion.parcelId}-${index}`}
+                        id={`suggestion-${index}`}
+                        className={`${styles.suggestionItem} ${selectedIndex === index ? styles.selected : ''}`}
+                        onMouseDown={(e) => handleSuggestionClick(suggestion, e)}
+                        onMouseEnter={() => setSelectedIndex(index)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleSuggestionClick(suggestion, e);
+                          }
+                        }}
+                        role="option"
+                        aria-selected={selectedIndex === index}
+                        tabIndex={0}
+                      >
+                        <div className={styles.suggestionContent}>
+                          <img src="/cob-uswds/img/usa-icons/location_on.svg" alt="" className={styles.locationIcon} aria-hidden="true" />
+                          <div className={styles.addressContainer}>
+                            <p className={styles.fullAddress}>{suggestion.fullAddress}</p>
+                            <p className={styles.parcelId}>{parcelIdPrefix}{suggestion.parcelId}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className={styles.loadingContainer} role="status">
+                    <p className={styles.loadingText}>{noResultsText}</p>
+                  </div>
+                )}
+                {suggestionsFooter}
+              </>
+            )}
       </div>
         )}
       
@@ -439,48 +471,58 @@ export const AnnotatedSearchBar: React.FC<AnnotatedSearchBarProps> = ({
               </form>
             </div>
 
-            <div 
+            <div
               id="modal-search-suggestions"
               className={styles.modalSuggestions}
-              role="listbox"
               aria-label={suggestionsAriaLabel}
             >
-              {loading ? (
-                <div className={styles.loadingContainer} role="status">
-                  <div className={styles.loadingSpinner} aria-hidden="true" />
-                  <p className={styles.loadingText}>{loadingText}</p>
-                </div>
-              ) : suggestions.length > 0 ? (
-                suggestions.map((suggestion, index) => (
-                  <div 
-                    key={`modal-${suggestion.parcelId}-${index}`} 
-                    id={`modal-suggestion-${index}`}
-                    className={`${styles.modalSuggestionItem} ${selectedIndex === index ? styles.selected : ''}`}
-                    onClick={() => handleSuggestionClick(suggestion)}
-                    onMouseEnter={() => setSelectedIndex(index)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        handleSuggestionClick(suggestion);
-                      }
-                    }}
-                    role="option"
-                    aria-selected={selectedIndex === index}
-                    tabIndex={0}
-                  >
-                    <div className={styles.suggestionContent}>
-                      <img src="/cob-uswds/img/usa-icons/location_on.svg" alt="" className={styles.locationIcon} aria-hidden="true" />
-                      <div className={styles.addressContainer}>
-                        <p className={styles.fullAddress}>{suggestion.fullAddress}</p>
-                        <p className={styles.parcelId}>{parcelIdPrefix}{suggestion.parcelId}</p>
-                      </div>
+              {showSuggestionsPanelContent ? (
+                <>
+                  {loading ? (
+                    <div className={styles.loadingContainer} role="status">
+                      <div className={styles.loadingSpinner} aria-hidden="true" />
+                      <p className={styles.loadingText}>{loadingText}</p>
                     </div>
-                  </div>
-                ))
-              ) : value.trim().length >= 1 ? (
-                <div className={styles.loadingContainer} role="status">
-                  <p className={styles.loadingText}>{noResultsText}</p>
-                </div>
+                  ) : suggestions.length > 0 ? (
+                    <div
+                      className={styles.modalSuggestionsList}
+                      role="listbox"
+                      aria-label={suggestionsAriaLabel}
+                    >
+                      {suggestions.map((suggestion, index) => (
+                        <div
+                          key={`modal-${suggestion.parcelId}-${index}`}
+                          id={`modal-suggestion-${index}`}
+                          className={`${styles.modalSuggestionItem} ${selectedIndex === index ? styles.selected : ''}`}
+                          onClick={() => handleSuggestionClick(suggestion)}
+                          onMouseEnter={() => setSelectedIndex(index)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              handleSuggestionClick(suggestion);
+                            }
+                          }}
+                          role="option"
+                          aria-selected={selectedIndex === index}
+                          tabIndex={0}
+                        >
+                          <div className={styles.suggestionContent}>
+                            <img src="/cob-uswds/img/usa-icons/location_on.svg" alt="" className={styles.locationIcon} aria-hidden="true" />
+                            <div className={styles.addressContainer}>
+                              <p className={styles.fullAddress}>{suggestion.fullAddress}</p>
+                              <p className={styles.parcelId}>{parcelIdPrefix}{suggestion.parcelId}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className={styles.loadingContainer} role="status">
+                      <p className={styles.loadingText}>{noResultsText}</p>
+                    </div>
+                  )}
+                  {suggestionsFooter}
+                </>
               ) : null}
             </div>
           </div>

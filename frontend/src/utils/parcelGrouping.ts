@@ -30,8 +30,14 @@ export function getMasterParcelId(parcelId: string): string {
  *
  * Groups are returned in the order determined by the first appearance of any
  * member of that group in the input array (preserving search relevance order).
+ *
+ * @param prefixIndex Optional map from prefix to all parcels in that family,
+ *   used to compute totalChildCount when expansion is limited.
  */
-export function groupByMasterParcel(results: PropertySearchResult[]): ParcelGroup[] {
+export function groupByMasterParcel(
+  results: PropertySearchResult[],
+  prefixIndex?: Map<string, { parcelId: string }[]>
+): ParcelGroup[] {
   const groupMap = new Map<string, { master: PropertySearchResult | null; children: PropertySearchResult[] }>();
   const groupOrder: string[] = [];
 
@@ -54,14 +60,24 @@ export function groupByMasterParcel(results: PropertySearchResult[]): ParcelGrou
 
   return groupOrder.map((prefix) => {
     const { master, children } = groupMap.get(prefix)!;
-    // Sort children by parcel ID for consistent ordering
     children.sort((a, b) => a.parcelId.localeCompare(b.parcelId));
     const allParcels: PropertySearchResult[] = master ? [master, ...children] : [...children];
+
+    let totalChildCount = children.length;
+    if (prefixIndex) {
+      const family = prefixIndex.get(prefix);
+      if (family) {
+        // Count non-master parcels in the full family
+        totalChildCount = family.filter(p => !isMasterParcel(p.parcelId)).length;
+      }
+    }
+
     return {
       masterPrefix: prefix,
       masterParcel: master,
       children,
       allParcels,
+      totalChildCount,
     };
   });
 }

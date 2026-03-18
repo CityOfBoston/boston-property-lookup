@@ -382,6 +382,7 @@ components:
     clearButtonAriaLabel: "Clear search"
     searchButtonAriaLabel: "Submit search"
     suggestionsAriaLabel: "Search suggestions"
+    suggestionsFooterText: "Didn't find your property? Click 'Search' or press 'Enter' to view all results."
     modalAriaLabel: "Search properties"
     closeModalAriaLabel: "Close search"
 
@@ -435,8 +436,7 @@ components:
   PropertySearchResults:
     heading: "PARCEL RESULTS"
     resultsCount: "We found {count} ({number}) results in {groupCount} parcel groups."
-    showAllUnits: "Show all {count} units"
-    hideUnits: "Show fewer units"
+    showAllUnits: "View all {count} units"
     columnHeaders:
       parcelId: "@shared.labels.parcelId"
       address: "@shared.labels.address"

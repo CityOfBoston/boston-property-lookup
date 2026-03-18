@@ -4,7 +4,7 @@
  */
 import { initializeApp } from 'firebase/app';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import type { PropertyDetailsData, PropertySearchResults, 
+import type { PropertyDetailsData, PropertySearchResults, MasterParcelOverviewResults,
   FeedbackData, StandardResponse, PdfGenerationRequest, PdfGenerationResponse } from '../types';
 
 // Firebase configuration.
@@ -32,11 +32,13 @@ const functions = getFunctions(app);
  */
 async function callFunction<TInput, TOutput>(
   functionName: string, 
-  data: TInput
+  data: TInput,
+  timeoutMs = 300000
 ): Promise<TOutput> {
   const callable = httpsCallable<TInput, StandardResponse<TOutput>>(
     functions,
-    functionName
+    functionName,
+    { timeout: timeoutMs }
   );
   
   const result = await callable(data);
@@ -62,6 +64,10 @@ export const fetchPropertyDetailsByParcelId = async (parcelId: string, date?: st
 
 export const fetchPropertySummariesByParcelIds = async (parcelIds: string[]): Promise<PropertySearchResults> => {
   return callFunction<{ parcelIds: string[] }, PropertySearchResults>('fetchPropertySummariesByParcelIds', { parcelIds });
+};
+
+export const fetchMasterParcelOverviewByParcelId = async (parcelId: string): Promise<MasterParcelOverviewResults> => {
+  return callFunction<{ parcelId: string }, MasterParcelOverviewResults>('fetchMasterParcelOverviewByParcelId', { parcelId });
 };
 
 export const getCurrentParcelIdAddressPairings = async (): Promise<{ compressedData: string; fileName: string }> => {

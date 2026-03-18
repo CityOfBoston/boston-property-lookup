@@ -28,6 +28,7 @@ export interface OverviewSectionData {
   residentialExemptionFlag: boolean;
   personalExemptionAmount: number;
   residentialExemptionAmount: number;
+  childParcelCount: number;
 }
 
 /**
@@ -127,6 +128,7 @@ export class PropertyDetails implements PropertyDetailsData {
     propertyNetTax: number;
     personalExemptionFlag: boolean;
     residentialExemptionFlag: boolean;
+    childParcelCount: number;
     buildingAttributes?: Array<{
       buildingNumber: number;
       landUse?: string;
@@ -263,6 +265,7 @@ export class PropertyDetails implements PropertyDetailsData {
       residentialExemptionFlag: data.residentialExemptionFlag,
       personalExemptionAmount: data.personalExemptionAmount,
       residentialExemptionAmount: data.residentialExemptionAmount,
+      childParcelCount: data.childParcelCount,
     };
 
     // Construct property value section
@@ -538,6 +541,8 @@ export interface PropertySearchResult {
   address: string;
   owners: string[];
   value: number;
+  isMasterParcel: boolean;
+  masterParcelId: string | null;
 }
 
 /**

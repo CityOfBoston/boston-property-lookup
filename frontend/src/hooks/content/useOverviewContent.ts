@@ -28,6 +28,7 @@ export interface OverviewCard {
   icon: React.ReactNode;
   header: string;
   value: string;
+  footer?: React.ReactNode;
 }
 
 export interface OverviewContent {
@@ -128,7 +129,14 @@ export function useOverviewContent(data: OverviewSectionData): OverviewContent {
     {
       icon: React.createElement('img', { src: content.cards.parcelId.icon }),
       header: content.cards.parcelId.header,
-      value: data.parcelId.toString()
+      value: data.parcelId.toString(),
+      footer: data.childParcelCount > 0 ? React.createElement('a', {
+        className: 'usa-link usa-link--external',
+        href: `#/master-parcel?parcelId=${data.parcelId}`,
+        rel: 'noreferrer',
+        target: '_blank',
+        style: { fontWeight: 700 },
+      }, 'View associated parcels') : undefined,
     },
     {
       icon: React.createElement('img', { src: content.cards.netTax.icon }),

@@ -15,7 +15,7 @@ import styles from './SearchResultsPage.module.scss';
 import { toWords } from 'number-to-words';
 
 /** Maximum number of children shown per group before collapsing */
-const CHILDREN_COLLAPSE_THRESHOLD = 5;
+const CHILDREN_VISIBLE_LIMIT = 4;
 
 export default function SearchResultsPage() {
   const welcomeContent = getComponentText('WelcomeContent');
@@ -32,27 +32,7 @@ export default function SearchResultsPage() {
   const performance = usePerformanceTracking('SearchResults');
   const renderStartTimeRef = useRef(0);
 
-  // Track which groups have been expanded to show all children
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-  
-  const { searchResults, groupedResults, isLoading, error, performSearch } = useSearchResults();
-
-  // Reset expanded groups when a new search is performed
-  useEffect(() => {
-    setExpandedGroups(new Set());
-  }, [searchResults]);
-
-  const toggleGroupExpansion = (masterPrefix: string) => {
-    setExpandedGroups(prev => {
-      const next = new Set(prev);
-      if (next.has(masterPrefix)) {
-        next.delete(masterPrefix);
-      } else {
-        next.add(masterPrefix);
-      }
-      return next;
-    });
-  };
+  const { searchResults, groupedResults, isLoading, isLoadingMore, error, hasMore, performSearch, loadMore } = useSearchResults();
 
   const handlePropertySelect = (pid: string, fullAddress?: string) => {
     console.log('[SearchResultsPage] handlePropertySelect called with pid:', pid, 'address:', fullAddress);
@@ -121,17 +101,17 @@ export default function SearchResultsPage() {
 
     for (let gi = 0; gi < groupedResults.length; gi++) {
       const group = groupedResults[gi];
-      const isGroupExpanded = expandedGroups.has(group.masterPrefix);
-      const hasCollapsibleChildren = group.children.length > CHILDREN_COLLAPSE_THRESHOLD;
-      const visibleChildren = hasCollapsibleChildren && !isGroupExpanded
-        ? group.children.slice(0, CHILDREN_COLLAPSE_THRESHOLD)
+      const hasMoreChildren = group.totalChildCount > CHILDREN_VISIBLE_LIMIT;
+      const visibleChildren = hasMoreChildren
+        ? group.children.slice(0, CHILDREN_VISIBLE_LIMIT)
         : group.children;
-      const hiddenCount = group.children.length - visibleChildren.length;
+      const isOrphanGroup = !group.masterParcel;
+      const masterParcelId = group.masterPrefix + '000';
 
-      // Emit master parcel row (if present)
       if (group.masterParcel) {
         const result = group.masterParcel;
         tableRows.push({
+          _parcelId: result.parcelId.toString(),
           'Parcel ID': result.parcelId.toString(),
           [searchResultsContent.columnHeaders.address]: result.address,
           [searchResultsContent.columnHeaders.owner]: result.owners.join(', '),
@@ -140,63 +120,42 @@ export default function SearchResultsPage() {
         meta.push({
           isMaster: true,
           isChild: false,
-          isLastInGroup: visibleChildren.length === 0 && hiddenCount === 0,
+          isLastInGroup: group.children.length === 0,
         });
       }
 
-      // Emit visible children
+      const hasChildren = group.children.length > 0;
+
       for (let ci = 0; ci < visibleChildren.length; ci++) {
         const result = visibleChildren[ci];
-        const isLast = ci === visibleChildren.length - 1 && hiddenCount === 0;
+        const isLastVisible = ci === visibleChildren.length - 1;
+        const isLastInGroup = isLastVisible && !hasMoreChildren;
         tableRows.push({
+          _parcelId: result.parcelId.toString(),
           'Parcel ID': result.parcelId.toString(),
           [searchResultsContent.columnHeaders.address]: result.address,
           [searchResultsContent.columnHeaders.owner]: result.owners.join(', '),
           [searchResultsContent.columnHeaders.value]: `$${result.value.toLocaleString()}`,
         });
         meta.push({
-          isMaster: false,
-          isChild: true,
-          isLastInGroup: isLast,
+          isMaster: isOrphanGroup,
+          isChild: !isOrphanGroup,
+          isLastInGroup,
         });
       }
 
-      // Emit "Show all N units" toggle row if collapsed
-      if (hiddenCount > 0) {
-        const showAllText = searchResultsContent.showAllUnits
-          ?.replace('{count}', group.children.length.toString()) || `Show all ${group.children.length} units`;
+      // "View all X units" link row pointing to master parcel page
+      if (hasChildren) {
+        const totalCount = group.totalChildCount ?? group.children.length;
+        const viewAllText = searchResultsContent.showAllUnits
+          ?.replace('{count}', totalCount.toString()) || `View all ${totalCount} units`;
         tableRows.push({
+          _parcelId: '',
+          _viewAllLink: `#/master-parcel?parcelId=${masterParcelId}`,
+          _viewAllText: viewAllText,
+          _mobileOnly: !hasMoreChildren,
           'Parcel ID': '',
-          [searchResultsContent.columnHeaders.address]: (
-            <button
-              className={styles.showMoreButton}
-              onClick={() => toggleGroupExpansion(group.masterPrefix)}
-            >
-              {showAllText}
-            </button>
-          ),
-          [searchResultsContent.columnHeaders.owner]: '',
-          [searchResultsContent.columnHeaders.value]: '',
-        });
-        meta.push({
-          isMaster: false,
-          isChild: true,
-          isLastInGroup: true,
-        });
-        // Don't count the toggle row in total
-      } else if (hasCollapsibleChildren && isGroupExpanded) {
-        // Show "Show fewer" toggle
-        const hideText = searchResultsContent.hideUnits || 'Show fewer units';
-        tableRows.push({
-          'Parcel ID': '',
-          [searchResultsContent.columnHeaders.address]: (
-            <button
-              className={styles.showMoreButton}
-              onClick={() => toggleGroupExpansion(group.masterPrefix)}
-            >
-              {hideText}
-            </button>
-          ),
+          [searchResultsContent.columnHeaders.address]: '',
           [searchResultsContent.columnHeaders.owner]: '',
           [searchResultsContent.columnHeaders.value]: '',
         });
@@ -210,7 +169,7 @@ export default function SearchResultsPage() {
     }
 
     return { tableData: tableRows, rowMeta: meta };
-  }, [groupedResults, expandedGroups, searchResultsContent]);
+  }, [groupedResults, searchResultsContent]);
 
   return (
     <SearchResultsLayout
@@ -267,6 +226,15 @@ export default function SearchResultsPage() {
                   />
                 );
               })()}
+            </div>
+            <div className={styles.loadMoreContainer}>
+              <button
+                className="usa-button"
+                onClick={loadMore}
+                disabled={isLoadingMore || !hasMore}
+              >
+                {isLoadingMore ? 'LOADING...' : hasMore ? 'LOAD MORE' : 'NO MORE RESULTS'}
+              </button>
             </div>
           </div>
         ) : (

@@ -1,6 +1,7 @@
 /**
  * PropertyValueSection component displays property value information and history
  */
+import { useMemo } from 'react';
 import PropertyDetailsSection from '../PropertyDetailsSection';
 import PropertyValuesBarChart from '@components/PropertyValuesBarChart';
 import ResponsiveTable from '@components/ResponsiveTable';
@@ -11,6 +12,8 @@ import { usePropertyValueContent } from '@src/hooks/usePropertyDetailsContent';
 
 interface PropertyValueSectionProps extends PropertyValueSectionData {
   title: string;
+  parcelId?: string;
+  childParcelCount?: number;
 }
 
 export default function PropertyValueSection(props: PropertyValueSectionProps) {
@@ -26,6 +29,12 @@ export default function PropertyValueSection(props: PropertyValueSectionProps) {
     sharedLabels,
   } = usePropertyValueContent(props);
 
+  const showMasterParcelNotice = useMemo(() => {
+    if (!(props.childParcelCount && props.childParcelCount > 0)) return false;
+    const lastFiveYears = sortedData.slice(-5);
+    return lastFiveYears.length > 0 && lastFiveYears.every(d => d.value === 0);
+  }, [props.childParcelCount, sortedData]);
+
   return (
     <PropertyDetailsSection title={props.title}>
       <div className={sharedStyles.paragraph}>
@@ -39,14 +48,36 @@ export default function PropertyValueSection(props: PropertyValueSectionProps) {
           {content.howWeEstimateLink.text}
         </a>.
       </div>
-    
-      <PropertyValuesBarChart
-        title={content.chart.title}
-        value={formattedValue}
-        data={sortedData.slice(-5)}
-      />
 
-      <div className={styles.valueHistory} ref={valueHistoryRef}>
+      {showMasterParcelNotice ? (
+        <div className={sharedStyles.paragraph}>
+          <p>
+            This parcel is a Master Parcel (a building with individual units).
+            To understand its value, you have to view the individual units inside of the building.
+          </p>
+          <br />
+          <br />
+          <p>
+            <a
+              className="usa-link usa-link--external"
+              href={`#/master-parcel?parcelId=${props.parcelId}`}
+              rel="noreferrer"
+              target="_blank"
+              style={{ fontWeight: 700 }}
+            >
+              View individual units
+            </a>
+          </p>
+        </div>
+      ) : (
+        <PropertyValuesBarChart
+          title={content.chart.title}
+          value={formattedValue}
+          data={sortedData.slice(-5)}
+        />
+      )}
+
+      <div className={`${styles.valueHistory} ${showMasterParcelNotice ? styles.noChart : ''}`} ref={valueHistoryRef}>
         <h3 tabIndex={-1} ref={valueHistoryHeaderRef}>{content.valueHistory.title}</h3>
         <div className={sharedStyles.paragraph}><strong>{sharedLabels?.note || 'Note'}:</strong> {content.valueHistory.note}</div>
         <div className={styles.screenTable}>

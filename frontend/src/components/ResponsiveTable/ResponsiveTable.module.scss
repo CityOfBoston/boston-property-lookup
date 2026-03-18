@@ -2,6 +2,8 @@
 
 .responsiveTable {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .fieldTable {
@@ -26,12 +28,17 @@
   }
 }
 
-.detailsLinks {
-  display: inline-flex;
-  gap: 16px;
-  flex-wrap: wrap;
-  align-items: center;
-  white-space: nowrap;
+.viewAllLink {
+  font-weight: 700;
+  text-align: left;
+  white-space: normal;
+}
+
+/* Standalone "View all" link for mobile view */
+.mobileToggle {
+  display: flex;
+  justify-content: flex-start;
+  padding: 8px 0;
 }
 
 /* Mobile group gap after last child in a group */

@@ -142,6 +142,18 @@ const realEstateDataLayerUrl = `${baseUrl}/13`;
  * - new_market_bid_amt: BID New Market assessment (optional, can be null)
  */
 const preliminaryTaxesDataLayerUrl = `${baseUrl}/14`;
+/**
+ * EGIS Schema Layer 15: Master Parcel Children
+ * Only child parcels appear in this layer. A parcel's presence as a parcel_id
+ * means it is a child; its master_parcel_id field identifies the parent.
+ * A parcel that appears as a master_parcel_id (but not as its own parcel_id)
+ * is a master parcel.
+ *
+ * Fields: OBJECTID, bill_year, master_parcel_id, parcel_id, address,
+ * street_number, street_number_suffix, street_name, apt_unit,
+ * owner_name, total_assessed_value
+ */
+const masterParcelChildrenDataLayerUrl = `${baseUrl}/15`;
 
 // Type definitions for ArcGIS Feature and response data
 interface ArcGISFeature {
@@ -458,7 +470,7 @@ export const fetchAllParcelIdAddressPairingsHelper = async (): Promise<{parcelId
 export const fetchPropertySummariesByParcelIdsHelper = async (
   parcelIds: string[],
   fiscalYearAndQuarter?: { year: number; quarter: string }
-): Promise<Array<{parcelId: string, fullAddress: string, owner: string, assessedValue: number}>> => {
+): Promise<Array<{parcelId: string, fullAddress: string, owner: string, assessedValue: number, isMasterParcel: boolean, masterParcelId: string | null}>> => {
   console.log(`[EGISClient] Starting fetchPropertySummariesByParcelIds for ${parcelIds.length} parcelIds`);
 
   if (fiscalYearAndQuarter) {
@@ -488,43 +500,38 @@ export const fetchPropertySummariesByParcelIdsHelper = async (
       if (fiscalYearAndQuarter) {
         addressWhereClause += ` AND fiscal_year=${fiscalYearAndQuarter.year} AND quarter=${fiscalYearAndQuarter.quarter}`;
       }
-      const addressQuery = `?where=${addressWhereClause}&outFields=*&returnGeometry=false&f=json`;
+      const addressOutFields = 'parcel_id,fiscal_year,quarter,street_number,street_number_suffix,street_name,apt_unit,city,location_zip_code';
+      const addressQuery = `?where=${addressWhereClause}&outFields=${addressOutFields}&returnGeometry=false&f=json`;
       let addressFeatures = await fetchEGISData(realEstateDataLayerUrl, addressQuery);
-      // Filter for highest fiscal year and quarter if not specified
       if (!fiscalYearAndQuarter) {
         addressFeatures = filterForHighestFiscalYearAndQuarter(addressFeatures);
       }
-      
-      // Fetch owner data from Layer 7 (Current Owners)
+
       let ownersWhereClause = `(${parcelIdConditions})`;
       if (fiscalYearAndQuarter) {
         ownersWhereClause += ` AND fiscal_year=${fiscalYearAndQuarter.year} AND quarter=${fiscalYearAndQuarter.quarter}`;
       }
-      const ownersQuery = `?where=${ownersWhereClause}&outFields=*&returnGeometry=false&f=json`;
+      const ownersOutFields = 'parcel_id,fiscal_year,quarter,owner_name';
+      const ownersQuery = `?where=${ownersWhereClause}&outFields=${ownersOutFields}&returnGeometry=false&f=json`;
       let ownersFeatures = await fetchEGISData(currentOwnersDataLayerUrl, ownersQuery);
-      
-      // Filter owners for highest fiscal year/quarter if not specified
       if (!fiscalYearAndQuarter) {
         ownersFeatures = filterForHighestFiscalYearAndQuarter(ownersFeatures);
       }
-      
-      // Fetch assessed value from appropriate tax layer based on quarter
-      // Q1 (July-Dec): Use Layer 14 (Preliminary Taxes)
-      // Q3 (Jan-Jun): Use Layer 12 (Taxes)
+
       let taxesWhereClause = `(${parcelIdConditions})`;
-      let taxLayerUrl = taxesDataLayerUrl; // Default to Layer 12
+      let taxLayerUrl = taxesDataLayerUrl;
       let useLayer14 = false;
-      
+
       if (fiscalYearAndQuarter) {
         taxesWhereClause += ` AND bill_year=${fiscalYearAndQuarter.year}`;
-        // Use Layer 14 for Q1 (quarter "1")
         if (fiscalYearAndQuarter.quarter === "1") {
           taxLayerUrl = preliminaryTaxesDataLayerUrl;
           useLayer14 = true;
         }
       }
-      
-      const taxesQuery = `?where=${taxesWhereClause}&outFields=*&returnGeometry=false&f=json`;
+
+      const taxesOutFields = 'parcel_id,bill_year,total_assessed_value';
+      const taxesQuery = `?where=${taxesWhereClause}&outFields=${taxesOutFields}&returnGeometry=false&f=json`;
       let taxesFeatures = await fetchEGISData(taxLayerUrl, taxesQuery);
       
       // Filter taxes for highest bill year if not specified
@@ -535,7 +542,7 @@ export const fetchPropertySummariesByParcelIdsHelper = async (
       // For Q1, fetch the previous year's assessed values from Layer 12
       let previousYearValueMap = new Map<string, number>();
       if (useLayer14 && fiscalYearAndQuarter) {
-        const previousYearQuery = `?where=(${parcelIdConditions}) AND bill_year=${fiscalYearAndQuarter.year - 1}&outFields=*&returnGeometry=false&f=json`;
+        const previousYearQuery = `?where=(${parcelIdConditions}) AND bill_year=${fiscalYearAndQuarter.year - 1}&outFields=parcel_id,total_assessed_value&returnGeometry=false&f=json`;
         try {
           const previousYearFeatures = await fetchEGISData(taxesDataLayerUrl, previousYearQuery);
           previousYearValueMap = new Map(
@@ -546,13 +553,38 @@ export const fetchPropertySummariesByParcelIdsHelper = async (
         }
       }
 
-      // Return maps for this batch
+      // Query Layer 15 to determine master/child relationships
+      let masterParcelWhereClause = `(${parcelIdConditions})`;
+      if (fiscalYearAndQuarter) {
+        masterParcelWhereClause += ` AND bill_year=${fiscalYearAndQuarter.year}`;
+      }
+      const masterParcelOutFields = 'parcel_id,bill_year,master_parcel_id';
+      const masterParcelQuery = `?where=${masterParcelWhereClause}&outFields=${masterParcelOutFields}&returnGeometry=false&f=json`;
+      let masterParcelFeatures = await fetchEGISData(masterParcelChildrenDataLayerUrl, masterParcelQuery);
+      if (!fiscalYearAndQuarter) {
+        masterParcelFeatures = filterForHighestFiscalYearAndQuarter(masterParcelFeatures, { yearField: 'bill_year', hasQuarter: false });
+      }
+
+      // Also check if any of these parcels are master parcels (have children pointing to them)
+      const masterCheckConditions = batchIds.map((id) => `master_parcel_id='${id}'`).join(" OR ");
+      let masterCheckWhereClause = `(${masterCheckConditions})`;
+      if (fiscalYearAndQuarter) {
+        masterCheckWhereClause += ` AND bill_year=${fiscalYearAndQuarter.year}`;
+      }
+      const masterCheckQuery = `?where=${masterCheckWhereClause}&outFields=master_parcel_id,parcel_id,bill_year&returnGeometry=false&f=json`;
+      let masterCheckFeatures = await fetchEGISData(masterParcelChildrenDataLayerUrl, masterCheckQuery);
+      if (!fiscalYearAndQuarter) {
+        masterCheckFeatures = filterForHighestFiscalYearAndQuarter(masterCheckFeatures, { yearField: 'bill_year', hasQuarter: false });
+      }
+
       return {
         addressFeatures,
         ownersFeatures,
         taxesFeatures,
         previousYearValueMap,
         useLayer14,
+        masterParcelFeatures,
+        masterCheckFeatures,
       };
     });
 
@@ -564,6 +596,8 @@ export const fetchPropertySummariesByParcelIdsHelper = async (
     const addressMap = new Map<string, any>();
     const ownersMap = new Map<string, string>();
     const valueMap = new Map<string, number>();
+    const childToMasterMap = new Map<string, string>();
+    const confirmedMasters = new Set<string>();
 
     for (const batch of batchResults) {
       // Merge address features
@@ -584,15 +618,40 @@ export const fetchPropertySummariesByParcelIdsHelper = async (
           : (f.attributes.total_assessed_value || 0);
         valueMap.set(parcelId, assessedValue);
       }
+
+      // Merge master parcel relationship data from Layer 15
+      // Every parcel is in Layer 15: children have master_parcel_id != parcel_id,
+      // masters and standalones self-reference (master_parcel_id === parcel_id)
+      for (const f of batch.masterParcelFeatures) {
+        const pid = f.attributes.parcel_id;
+        const mid = f.attributes.master_parcel_id;
+        if (pid !== mid) {
+          childToMasterMap.set(pid, mid);
+        }
+      }
+      // Parcels that appear as master_parcel_id for OTHER parcels are true masters
+      for (const f of batch.masterCheckFeatures) {
+        const mid = f.attributes.master_parcel_id;
+        const pid = f.attributes.parcel_id;
+        if (pid !== mid) {
+          confirmedMasters.add(mid);
+        }
+      }
     }
 
     // Combine data in the original order
-    const results = parcelIds.map((parcelId) => ({
-      parcelId,
-      fullAddress: addressMap.has(parcelId) ? constructFullAddress(addressMap.get(parcelId)!) : "Address not available",
-      owner: ownersMap.has(parcelId) ? toCamelCase(ownersMap.get(parcelId)) : "",
-      assessedValue: valueMap.get(parcelId) || 0,
-    }));
+    const results = parcelIds.map((parcelId) => {
+      const isChild = childToMasterMap.has(parcelId);
+      const isMaster = confirmedMasters.has(parcelId);
+      return {
+        parcelId,
+        fullAddress: addressMap.has(parcelId) ? constructFullAddress(addressMap.get(parcelId)!) : "Address not available",
+        owner: ownersMap.has(parcelId) ? toCamelCase(ownersMap.get(parcelId)) : "",
+        assessedValue: valueMap.get(parcelId) || 0,
+        isMasterParcel: isMaster && !isChild,
+        masterParcelId: isChild ? childToMasterMap.get(parcelId)! : null,
+      };
+    });
 
     console.log(`[EGISClient] Found ${results.length} property summaries (${addressMap.size} addresses, ${ownersMap.size} owners, ${valueMap.size} values)`);
     return results;
@@ -652,6 +711,98 @@ export const fetchPropertySummaryByParcelIdHelper = async (parcelId: string): Pr
 
   console.log(`[EGISClient] No property found for parcelId: ${parcelId}`);
   return null;
+};
+
+/**
+ * Checks whether a parcel is a master parcel, a child, or standalone using Layer 15.
+ *
+ * Layer 15 contains ALL parcels. Each row has both parcel_id and master_parcel_id:
+ * - Self-referencing (parcel_id === master_parcel_id) with children → master parcel
+ * - Self-referencing with no children → standalone parcel
+ * - parcel_id !== master_parcel_id → child parcel
+ *
+ * @param parcelId The parcel ID to check.
+ * @return Object with isMasterParcel flag and masterParcelId (if the parcel is a child).
+ */
+export const fetchMasterParcelInfoHelper = async (
+  parcelId: string
+): Promise<{isMasterParcel: boolean, masterParcelId: string | null, childParcelCount: number}> => {
+  console.log(`[EGISClient] Starting fetchMasterParcelInfo for parcelId: ${parcelId}`);
+
+  try {
+    const lookupQuery = `?where=parcel_id='${parcelId}'&outFields=master_parcel_id,bill_year&returnGeometry=false&f=json`;
+    let lookupFeatures = await fetchEGISData(masterParcelChildrenDataLayerUrl, lookupQuery);
+    lookupFeatures = filterForHighestFiscalYearAndQuarter(lookupFeatures, { yearField: 'bill_year', hasQuarter: false });
+
+    if (lookupFeatures.length === 0) {
+      console.log(`[EGISClient] Parcel ${parcelId} not found in Layer 15`);
+      return { isMasterParcel: false, masterParcelId: null, childParcelCount: 0 };
+    }
+
+    const masterParcelId = lookupFeatures[0].attributes.master_parcel_id;
+
+    if (masterParcelId !== parcelId) {
+      console.log(`[EGISClient] Parcel ${parcelId} is a child of master ${masterParcelId}`);
+      return { isMasterParcel: false, masterParcelId, childParcelCount: 0 };
+    }
+
+    // Self-referencing — fetch all children to get the count
+    const childCheckQuery = `?where=master_parcel_id='${parcelId}' AND parcel_id<>'${parcelId}'&outFields=parcel_id,bill_year&returnGeometry=false&f=json`;
+    let childCheckFeatures = await fetchEGISData(masterParcelChildrenDataLayerUrl, childCheckQuery);
+    childCheckFeatures = filterForHighestFiscalYearAndQuarter(childCheckFeatures, { yearField: 'bill_year', hasQuarter: false });
+
+    if (childCheckFeatures.length > 0) {
+      console.log(`[EGISClient] Parcel ${parcelId} is a master parcel with ${childCheckFeatures.length} children`);
+      return { isMasterParcel: true, masterParcelId: null, childParcelCount: childCheckFeatures.length };
+    }
+
+    console.log(`[EGISClient] Parcel ${parcelId} is a standalone parcel (self-referencing, no children)`);
+    return { isMasterParcel: false, masterParcelId: null, childParcelCount: 0 };
+  } catch (error) {
+    console.error(`[EGISClient] Error fetching master parcel info for ${parcelId}:`, error);
+    return { isMasterParcel: false, masterParcelId: null, childParcelCount: 0 };
+  }
+};
+
+/**
+ * Fetches all child parcels for a given master parcel ID using Layer 15.
+ * Returns summary data (parcel_id, address, owner, assessed value) for each child.
+ * The master parcel's self-referencing row is excluded from results.
+ *
+ * @param masterParcelId The master parcel ID to find children for.
+ * @return Array of child parcel summaries.
+ */
+export const fetchMasterParcelOverviewHelper = async (
+  masterParcelId: string
+): Promise<Array<{parcelId: string, address: string, owner: string, assessedValue: number}>> => {
+  console.log(`[EGISClient] Starting fetchMasterParcelOverview for masterParcelId: ${masterParcelId}`);
+
+  try {
+    // Exclude the master's own self-referencing row
+    const whereClause = `master_parcel_id='${masterParcelId}' AND parcel_id<>'${masterParcelId}'`;
+    const outFields = 'parcel_id,bill_year,address,owner_name,total_assessed_value';
+    const query = `?where=${whereClause}&outFields=${outFields}&returnGeometry=false&f=json`;
+
+    let features = await fetchEGISData(masterParcelChildrenDataLayerUrl, query);
+    features = filterForHighestFiscalYearAndQuarter(features, { yearField: 'bill_year', hasQuarter: false });
+
+    console.log(`[EGISClient] Found ${features.length} child parcels for master ${masterParcelId}`);
+
+    const results = features.map((feature) => ({
+      parcelId: feature.attributes.parcel_id,
+      address: feature.attributes.address || "",
+      owner: feature.attributes.owner_name ? toCamelCase(feature.attributes.owner_name) : "",
+      assessedValue: feature.attributes.total_assessed_value || 0,
+    }));
+
+    results.sort((a, b) => a.parcelId.localeCompare(b.parcelId));
+
+    console.log(`[EGISClient] Returning ${results.length} child parcel summaries for master ${masterParcelId}`);
+    return results;
+  } catch (error) {
+    console.error(`[EGISClient] Error fetching master parcel overview for ${masterParcelId}:`, error);
+    return [];
+  }
 };
 
 /**
@@ -1123,6 +1274,9 @@ export const fetchPropertyDetailsByParcelIdHelper = async (
   const isPartOfComplex = !!condoAttrs?.complex?.trim();
   const masterParcelId = isPartOfComplex ? extractMasterParcelId(condoAttrs.complex) : undefined;
 
+  // Query Layer 15 for authoritative master/child relationship
+  const masterParcelInfo = await fetchMasterParcelInfoHelper(parcelId);
+
   // Log property structure and layout decision
   const layout = residentialPropertyFeatures.length > 1 ? "multiple_buildings" :
     isPartOfComplex ? "condo_unit_split" :
@@ -1207,6 +1361,7 @@ export const fetchPropertyDetailsByParcelIdHelper = async (
     propertyNetTax: useLayer14 ? (taxesData.preliminary_tax || 0) : (taxesData.net_tax || 0), // Layer 14: preliminary_tax, Layer 12: net_tax
     personalExemptionFlag: taxesData.personal_exemption_flag || false, // Available in both layers
     residentialExemptionFlag: taxesData.residential_exemption_flag || false, // Available in both layers
+    childParcelCount: masterParcelInfo.childParcelCount,
     totalBilledAmount: useLayer14 ? (taxesData.preliminary_tax || 0) : (taxesData.total_billed_amt || 0), // Layer 14: preliminary_tax, Layer 12: total_billed_amt
     // Property Value fields
     historicPropertyValues: historicalValues,
@@ -1319,7 +1474,7 @@ export const fetchPropertyDetailsByParcelIdHelper = async (
 
   console.log(`[EGISClient] Property details completed for parcelId: ${parcelId}. Historical values count: ${Object.keys(historicalValues).length}`);
 
-  // Return both property details and geometry
+  // Return property details, geometry, and master parcel status
   return {
     ...propertyDetails,
     geometry: geometricData,

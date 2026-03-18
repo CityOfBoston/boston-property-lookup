@@ -37,8 +37,7 @@ export const RecordTable: React.FC<RecordTableProps> = ({
     return null;
   }
 
-  // Extract keys from the data object
-  const keys = Object.keys(data);
+  const keys = Object.keys(data).filter(k => !k.startsWith('_'));
   const isActive = activeRowIndex === rowIndex;
   const isOpened = openedRowIndex === rowIndex;
 

@@ -6,6 +6,10 @@
   gap: 11px;
   padding-top: 24px;
 
+  &.noChart {
+    padding-top: 0;
+  }
+
   h3, p {
     margin: 0;
   }

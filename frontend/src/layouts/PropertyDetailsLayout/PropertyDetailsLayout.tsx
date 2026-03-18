@@ -1,13 +1,23 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import Banner from "../Banner";
 import Footer from "../Footer";
 import Header from "../Header";
 import { IconButton } from "@components/IconButton";
 import { PropertySearchPopup } from "@components/PropertySearchPopup";
+import { SectionShareContext } from "@components/PropertyDetailsSection/PropertyDetailsSection";
 import { FeedbackSenderContainer } from "@containers/FeedbackSenderContainer";
 import { getComponentText } from "@utils/contentMapper";
 import styles from "./PropertyDetailsLayout.module.scss";
 import backToTop from "../../assets/back_to_top.png";
+
+function toAnchorId(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/&/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
 
 // Add useMediaQuery hook
 const useMediaQuery = (query: string) => {
@@ -77,12 +87,14 @@ interface PropertyDetailsLayoutProps {
  */
 export default function PropertyDetailsLayout({ sections, parcelId }: PropertyDetailsLayoutProps) {
   const layoutContent = getComponentText('PropertyDetailsLayout', 'layouts.PropertyDetailsLayout');
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
   const headerRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLElement>(null);
   const navRef = useRef<HTMLElement>(null);
   const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const lastScrolledSection = useRef<string | null>(null);
   
   // Add media query for desktop
   const isDesktop = useMediaQuery('(min-width: 769px)');
@@ -190,7 +202,41 @@ export default function PropertyDetailsLayout({ sections, parcelId }: PropertyDe
       top: section.offsetTop - offset,
       behavior: 'smooth'
     });
+
+    const anchorId = toAnchorId(sections[index].name);
+    lastScrolledSection.current = anchorId;
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('section', anchorId);
+      return next;
+    }, { replace: true });
   };
+
+  const sectionParam = searchParams.get('section');
+  useEffect(() => {
+    if (!sectionParam || lastScrolledSection.current === sectionParam) return;
+    const targetIndex = sections.findIndex(s => toAnchorId(s.name) === sectionParam);
+    if (targetIndex === -1) return;
+
+    lastScrolledSection.current = sectionParam;
+    setTimeout(() => {
+      const section = sectionRefs.current[targetIndex];
+      if (!section) return;
+      const headerHeight = headerRef.current?.getBoundingClientRect().height || 0;
+      const navHeight = navRef.current?.getBoundingClientRect().height || 0;
+      window.scrollTo({
+        top: section.offsetTop - headerHeight - navHeight,
+        behavior: 'smooth'
+      });
+    }, 300);
+  }, [sectionParam, sections]);
+
+  const getShareUrl = useCallback((anchorId: string): string => {
+    const params = new URLSearchParams(searchParams);
+    params.set('section', anchorId);
+    const hashPath = window.location.hash.split('?')[0];
+    return `${window.location.origin}${window.location.pathname}${hashPath}?${params.toString()}`;
+  }, [searchParams]);
 
   return (
     <div className={styles.propertyDetailsLayout}>
@@ -247,21 +293,24 @@ export default function PropertyDetailsLayout({ sections, parcelId }: PropertyDe
       
       {/* Main content with sections */}
       <main ref={mainRef} className={styles.main}>
-        <div>
-          <h1 className={styles.detailsTitle}>{layoutContent.title}</h1>
-          {sections.map((section, index) => (
-            <div
-              key={section.name}
-              ref={el => sectionRefs.current[index] = el}
-              className={styles.section}
-            >
-              {section.component}
+        <SectionShareContext.Provider value={getShareUrl}>
+          <div>
+            <h1 className={styles.detailsTitle}>{layoutContent.title}</h1>
+            {sections.map((section, index) => (
+              <div
+                key={section.name}
+                id={toAnchorId(section.name)}
+                ref={el => sectionRefs.current[index] = el}
+                className={styles.section}
+              >
+                {section.component}
+              </div>
+            ))}
+            <div className={styles.feedbackSenderWrapper}>
+              <FeedbackSenderContainer parcelId={parcelId} />
             </div>
-          ))}
-          <div className={styles.feedbackSenderWrapper}>
-            <FeedbackSenderContainer parcelId={parcelId} />
           </div>
-        </div>
+        </SectionShareContext.Provider>
       </main>
       
       {/* Footer at the bottom */}
