@@ -10,6 +10,7 @@ import ResponsiveTable from '@components/ResponsiveTable';
 import { LoadingIndicator } from '@components/LoadingIndicator';
 import type { RowMeta } from '@components/ResponsiveTable/ResponsiveTable';
 import { useSearchResults } from '@hooks/useSearchResults';
+import { useParcelPairingsContext } from '@hooks/useParcelPairingsContext';
 import { usePerformanceTracking } from '@services/analytics';
 import styles from './SearchResultsPage.module.scss';
 import { toWords } from 'number-to-words';
@@ -33,6 +34,7 @@ export default function SearchResultsPage() {
   const renderStartTimeRef = useRef(0);
 
   const { searchResults, groupedResults, isLoading, isLoadingMore, error, hasMore, performSearch, loadMore } = useSearchResults();
+  const { isLoading: isPairingsLoading } = useParcelPairingsContext();
 
   const handlePropertySelect = (pid: string, fullAddress?: string) => {
     console.log('[SearchResultsPage] handlePropertySelect called with pid:', pid, 'address:', fullAddress);
@@ -56,11 +58,11 @@ export default function SearchResultsPage() {
     }
   };
 
+  // Auto-run search when landing with ?q=...; wait for parcel pairings to load first
   useEffect(() => {
-    if (query) {
-      performSearch(query);
-    }
-  }, [query, performSearch]);
+    if (!query.trim() || isPairingsLoading) return;
+    performSearch(query);
+  }, [query, performSearch, isPairingsLoading]);
 
   // Blur the search button when search completes (only for same-query reloads)
   useEffect(() => {
