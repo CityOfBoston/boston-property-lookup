@@ -14,6 +14,8 @@ interface PropertyValueSectionProps extends PropertyValueSectionData {
   title: string;
   parcelId?: string;
   childParcelCount?: number;
+  /** When set, this parcel is a child (Layer 15); show "View master parcel" link. */
+  masterParcelId?: string;
 }
 
 export default function PropertyValueSection(props: PropertyValueSectionProps) {
@@ -48,6 +50,23 @@ export default function PropertyValueSection(props: PropertyValueSectionProps) {
           {content.howWeEstimateLink.text}
         </a>.
       </div>
+
+      {props.masterParcelId && (
+        <div className={sharedStyles.paragraph}>
+          <p>
+            This parcel is part of a master parcel.{' '}
+            <a
+              className="usa-link usa-link--external"
+              href={`#/master-parcel?parcelId=${props.masterParcelId}`}
+              rel="noreferrer"
+              target="_blank"
+              style={{ fontWeight: 700 }}
+            >
+              View master parcel
+            </a>
+          </p>
+        </div>
+      )}
 
       {showMasterParcelNotice ? (
         <div className={sharedStyles.paragraph}>

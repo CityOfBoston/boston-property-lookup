@@ -5,7 +5,8 @@ import type { PropertySearchResults, ParcelGroup } from '../types';
 import { groupByMasterParcel, getMasterPrefix } from '@utils/parcelGrouping';
 
 const GROUPS_PER_PAGE = 10;
-const THRESHOLDS = [0.2, 0.3, 0.4, 0.5, 0.6];
+// Start permissive (0.4) so queries like "505 tremont" include the right address; scoring ranks/filters.
+const THRESHOLDS = [0.4, 0.5, 0.6];
 
 interface UseSearchResultsReturn {
   searchResults: PropertySearchResults | null;

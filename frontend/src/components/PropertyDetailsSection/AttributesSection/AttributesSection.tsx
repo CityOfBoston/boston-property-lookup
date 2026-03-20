@@ -11,6 +11,8 @@ interface AttributesSectionProps {
   title: string;
   childParcelCount?: number;
   parcelId?: string;
+  /** When set, this parcel is a child; link "View master parcel" uses this (Layer 15). */
+  masterParcelId?: string;
 }
 
 // Helper function to check if an item is a category
@@ -46,7 +48,7 @@ const renderAttributeFields = (fields: PropertyAttributeField[], masterParcelIdL
   );
 };
 
-export default function AttributesSection({ data, title, childParcelCount, parcelId }: AttributesSectionProps) {
+export default function AttributesSection({ data, title, childParcelCount, parcelId, masterParcelId }: AttributesSectionProps) {
   const {
     sharedButtons,
     sharedLabels,
@@ -107,6 +109,22 @@ export default function AttributesSection({ data, title, childParcelCount, parce
                         style={{ fontWeight: 700 }}
                       >
                         View associated parcels
+                      </a>
+                    </li>
+                  </ul>
+                )}
+                {masterParcelId && (groupIndex === 0) && (
+                  <ul>
+                    <li>
+                      <strong>Part of master parcel:</strong>{' '}
+                      <a
+                        className="usa-link usa-link--external"
+                        href={`#/master-parcel?parcelId=${masterParcelId}`}
+                        rel="noreferrer"
+                        target="_blank"
+                        style={{ fontWeight: 700 }}
+                      >
+                        View master parcel
                       </a>
                     </li>
                   </ul>

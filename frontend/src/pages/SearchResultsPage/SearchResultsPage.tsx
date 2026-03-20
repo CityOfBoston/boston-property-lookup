@@ -108,7 +108,11 @@ export default function SearchResultsPage() {
         ? group.children.slice(0, CHILDREN_VISIBLE_LIMIT)
         : group.children;
       const isOrphanGroup = !group.masterParcel;
-      const masterParcelId = group.masterPrefix + '000';
+      // Use Layer 15 master when present; else first child's master; else suffix convention for link
+      const masterParcelId =
+        group.masterParcel?.parcelId ??
+        group.children[0]?.masterParcelId ??
+        group.masterPrefix + '000';
 
       if (group.masterParcel) {
         const result = group.masterParcel;

@@ -66,6 +66,7 @@ export const ComplexFeedbackSender: React.FC<ComplexFeedbackSenderProps> = ({
 }) => {
   const [feedbackText, setFeedbackText] = useState('');
   const [issueType, setIssueType] = useState<string>('');
+  const [submitted, setSubmitted] = useState(false);
   const MAX_CHARACTERS = 500;
   const analytics = useGoogleAnalytics();
   const performance = usePerformanceTracking('ComplexFeedbackSender');
@@ -101,9 +102,10 @@ export const ComplexFeedbackSender: React.FC<ComplexFeedbackSenderProps> = ({
 
         performance.trackOperation('complex_feedback_submit', 'success', window.performance.now() - startTime);
         
-        // Clear form after successful submission (modal close handled by container)
+        // Show success view (user closes via "Close form" button)
         setIssueType('');
         setFeedbackText('');
+        setSubmitted(true);
       } catch (error) {
         // Track feedback submission error
         analytics.trackError({
@@ -119,9 +121,10 @@ export const ComplexFeedbackSender: React.FC<ComplexFeedbackSenderProps> = ({
   };
 
   const handleClose = () => {
-    // Clear form when modal is closed
+    // Clear form and success state when modal is closed
     setIssueType('');
     setFeedbackText('');
+    setSubmitted(false);
     onClose();
   };
 
@@ -165,6 +168,20 @@ export const ComplexFeedbackSender: React.FC<ComplexFeedbackSenderProps> = ({
           </button>
         </div>
 
+        {submitted ? (
+          <div className={styles.successContainer}>
+            <p className={styles.successMessage}>
+              Thank you for your feedback! We're actively reviewing it to improve the user experience.
+            </p>
+            <button
+              type="button"
+              className={`usa-button usa-button--primary ${styles.closeFormButton}`}
+              onClick={handleClose}
+            >
+              Close form
+            </button>
+          </div>
+        ) : (
         <form className={styles.feedbackForm} onSubmit={handleSubmit}>
           <div className={styles.feedbackContainer}>
             <fieldset className="usa-fieldset">
@@ -241,6 +258,7 @@ export const ComplexFeedbackSender: React.FC<ComplexFeedbackSenderProps> = ({
             />
           </div>
         </form>
+        )}
       </div>
     </div>
   );

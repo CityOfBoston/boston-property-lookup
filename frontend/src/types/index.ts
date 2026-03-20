@@ -28,6 +28,8 @@ export interface OverviewSectionData {
   personalExemptionAmount: number;
   residentialExemptionAmount: number;
   childParcelCount: number;
+  /** Set when this parcel is a child (Layer 15); link to master parcel overview. */
+  masterParcelId?: string;
 }
 
 /**
@@ -241,6 +243,7 @@ export class PropertyDetails implements PropertyDetailsData {
       personalExemptionAmount: data.personalExemptionAmount,
       residentialExemptionAmount: data.residentialExemptionAmount,
       childParcelCount: data.childParcelCount,
+      masterParcelId: data.masterParcelId,
     };
 
     // Construct property value section

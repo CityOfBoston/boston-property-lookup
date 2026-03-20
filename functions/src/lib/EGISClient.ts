@@ -167,6 +167,13 @@ type EGISQueryResponse = {
     exceededTransferLimit?: boolean;
 }
 
+/** Normalize parcel ID to 10-digit string so Layer 15 lookups match regardless of leading zeros or number type. */
+function normalizeParcelId(id: string | number | undefined | null): string {
+  if (id === undefined || id === null) return "";
+  const digits = String(id).replace(/\D/g, "");
+  return digits.padStart(10, "0").slice(-10);
+}
+
 /**
  * Abstract function that handles pagination for the EGIS API to ensure all data is retreived when using queries.
  *
@@ -546,7 +553,7 @@ export const fetchPropertySummariesByParcelIdsHelper = async (
         try {
           const previousYearFeatures = await fetchEGISData(taxesDataLayerUrl, previousYearQuery);
           previousYearValueMap = new Map(
-            previousYearFeatures.map(f => [f.attributes.parcel_id, f.attributes.total_assessed_value || 0])
+            previousYearFeatures.map(f => [normalizeParcelId(f.attributes.parcel_id), f.attributes.total_assessed_value || 0])
           );
         } catch (error) {
           console.log(`[EGISClient] Error fetching previous year assessed values for batch:`, error);
@@ -600,56 +607,49 @@ export const fetchPropertySummariesByParcelIdsHelper = async (
     const confirmedMasters = new Set<string>();
 
     for (const batch of batchResults) {
-      // Merge address features
       for (const f of batch.addressFeatures) {
-        addressMap.set(f.attributes.parcel_id, f.attributes);
+        addressMap.set(normalizeParcelId(f.attributes.parcel_id), f.attributes);
       }
-
-      // Merge owner features
       for (const f of batch.ownersFeatures) {
-        ownersMap.set(f.attributes.parcel_id, f.attributes.owner_name);
+        ownersMap.set(normalizeParcelId(f.attributes.parcel_id), f.attributes.owner_name);
       }
-
-      // Merge tax features
       for (const f of batch.taxesFeatures) {
-        const parcelId = f.attributes.parcel_id;
-        const assessedValue = batch.useLayer14 
-          ? (batch.previousYearValueMap.get(parcelId) || 0)
+        const pid = normalizeParcelId(f.attributes.parcel_id);
+        const assessedValue = batch.useLayer14
+          ? (batch.previousYearValueMap.get(pid) || 0)
           : (f.attributes.total_assessed_value || 0);
-        valueMap.set(parcelId, assessedValue);
+        valueMap.set(pid, assessedValue);
       }
 
-      // Merge master parcel relationship data from Layer 15
-      // Every parcel is in Layer 15: children have master_parcel_id != parcel_id,
-      // masters and standalones self-reference (master_parcel_id === parcel_id)
+      // Merge master parcel relationship data from Layer 15 (use normalized IDs so 0500815020 matches 500815020)
       for (const f of batch.masterParcelFeatures) {
-        const pid = f.attributes.parcel_id;
-        const mid = f.attributes.master_parcel_id;
+        const pid = normalizeParcelId(f.attributes.parcel_id);
+        const mid = normalizeParcelId(f.attributes.master_parcel_id);
         if (pid !== mid) {
           childToMasterMap.set(pid, mid);
         }
       }
-      // Parcels that appear as master_parcel_id for OTHER parcels are true masters
       for (const f of batch.masterCheckFeatures) {
-        const mid = f.attributes.master_parcel_id;
-        const pid = f.attributes.parcel_id;
+        const mid = normalizeParcelId(f.attributes.master_parcel_id);
+        const pid = normalizeParcelId(f.attributes.parcel_id);
         if (pid !== mid) {
           confirmedMasters.add(mid);
         }
       }
     }
 
-    // Combine data in the original order
+    // Combine data in the original order; use normalized ID for all lookups (Layer 15 and other layers)
     const results = parcelIds.map((parcelId) => {
-      const isChild = childToMasterMap.has(parcelId);
-      const isMaster = confirmedMasters.has(parcelId);
+      const nid = normalizeParcelId(parcelId);
+      const isChild = childToMasterMap.has(nid);
+      const isMaster = confirmedMasters.has(nid);
       return {
         parcelId,
-        fullAddress: addressMap.has(parcelId) ? constructFullAddress(addressMap.get(parcelId)!) : "Address not available",
-        owner: ownersMap.has(parcelId) ? toCamelCase(ownersMap.get(parcelId)) : "",
-        assessedValue: valueMap.get(parcelId) || 0,
+        fullAddress: addressMap.has(nid) ? constructFullAddress(addressMap.get(nid)!) : "Address not available",
+        owner: ownersMap.has(nid) ? toCamelCase(ownersMap.get(nid)) : "",
+        assessedValue: valueMap.get(nid) || 0,
         isMasterParcel: isMaster && !isChild,
-        masterParcelId: isChild ? childToMasterMap.get(parcelId)! : null,
+        masterParcelId: isChild ? childToMasterMap.get(nid)! : null,
       };
     });
 
@@ -730,7 +730,8 @@ export const fetchMasterParcelInfoHelper = async (
   console.log(`[EGISClient] Starting fetchMasterParcelInfo for parcelId: ${parcelId}`);
 
   try {
-    const lookupQuery = `?where=parcel_id='${parcelId}'&outFields=master_parcel_id,bill_year&returnGeometry=false&f=json`;
+    const nid = normalizeParcelId(parcelId);
+    const lookupQuery = `?where=parcel_id='${nid}'&outFields=master_parcel_id,bill_year&returnGeometry=false&f=json`;
     let lookupFeatures = await fetchEGISData(masterParcelChildrenDataLayerUrl, lookupQuery);
     lookupFeatures = filterForHighestFiscalYearAndQuarter(lookupFeatures, { yearField: 'bill_year', hasQuarter: false });
 
@@ -739,15 +740,14 @@ export const fetchMasterParcelInfoHelper = async (
       return { isMasterParcel: false, masterParcelId: null, childParcelCount: 0 };
     }
 
-    const masterParcelId = lookupFeatures[0].attributes.master_parcel_id;
+    const masterParcelIdFromLayer = normalizeParcelId(lookupFeatures[0].attributes.master_parcel_id);
 
-    if (masterParcelId !== parcelId) {
-      console.log(`[EGISClient] Parcel ${parcelId} is a child of master ${masterParcelId}`);
-      return { isMasterParcel: false, masterParcelId, childParcelCount: 0 };
+    if (masterParcelIdFromLayer !== nid) {
+      console.log(`[EGISClient] Parcel ${parcelId} is a child of master ${masterParcelIdFromLayer}`);
+      return { isMasterParcel: false, masterParcelId: masterParcelIdFromLayer, childParcelCount: 0 };
     }
 
-    // Self-referencing — fetch all children to get the count
-    const childCheckQuery = `?where=master_parcel_id='${parcelId}' AND parcel_id<>'${parcelId}'&outFields=parcel_id,bill_year&returnGeometry=false&f=json`;
+    const childCheckQuery = `?where=master_parcel_id='${nid}' AND parcel_id<>'${nid}'&outFields=parcel_id,bill_year&returnGeometry=false&f=json`;
     let childCheckFeatures = await fetchEGISData(masterParcelChildrenDataLayerUrl, childCheckQuery);
     childCheckFeatures = filterForHighestFiscalYearAndQuarter(childCheckFeatures, { yearField: 'bill_year', hasQuarter: false });
 
@@ -778,10 +778,10 @@ export const fetchMasterParcelOverviewHelper = async (
   console.log(`[EGISClient] Starting fetchMasterParcelOverview for masterParcelId: ${masterParcelId}`);
 
   try {
-    // Exclude the master's own self-referencing row
-    const whereClause = `master_parcel_id='${masterParcelId}' AND parcel_id<>'${masterParcelId}'`;
+    const nid = normalizeParcelId(masterParcelId);
+    const whereClause = `master_parcel_id='${nid}' AND parcel_id<>'${nid}'`;
     const outFields = 'parcel_id,bill_year,address,owner_name,total_assessed_value';
-    const query = `?where=${whereClause}&outFields=${outFields}&returnGeometry=false&f=json`;
+    const query = `?where=${encodeURIComponent(whereClause)}&outFields=${outFields}&returnGeometry=false&f=json`;
 
     let features = await fetchEGISData(masterParcelChildrenDataLayerUrl, query);
     features = filterForHighestFiscalYearAndQuarter(features, { yearField: 'bill_year', hasQuarter: false });
@@ -1270,12 +1270,15 @@ export const fetchPropertyDetailsByParcelIdHelper = async (
     return result;
   };
 
-  // Check if this unit belongs to an apartment complex (has non-empty complex field)
-  const isPartOfComplex = !!condoAttrs?.complex?.trim();
-  const masterParcelId = isPartOfComplex ? extractMasterParcelId(condoAttrs.complex) : undefined;
-
   // Query Layer 15 for authoritative master/child relationship
   const masterParcelInfo = await fetchMasterParcelInfoHelper(parcelId);
+
+  // Check if this unit belongs to an apartment complex (has non-empty complex field)
+  const isPartOfComplex = !!condoAttrs?.complex?.trim();
+  // Layer 15 is authoritative for child→master; condo complex can override for display
+  const masterParcelId =
+    masterParcelInfo.masterParcelId ??
+    (isPartOfComplex ? extractMasterParcelId(condoAttrs.complex) : undefined);
 
   // Log property structure and layout decision
   const layout = residentialPropertyFeatures.length > 1 ? "multiple_buildings" :
@@ -1335,6 +1338,7 @@ export const fetchPropertyDetailsByParcelIdHelper = async (
     buildingAttributes: hasMultipleBuildings ? buildingAttrs : undefined,
     outbuildingAttributes: outbuildingAttrs,
     ...condoMainAttributes,
+    masterParcelId: masterParcelId ?? undefined,
     // Overview fields
     fullAddress: constructFullAddress(addressData),
     owners: owners,

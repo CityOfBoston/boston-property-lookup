@@ -282,7 +282,7 @@ export function useParcelPairings(): UseParcelPairingsReturn {
       }
 
       // Fall back to fuzzy search
-      const effectiveThreshold = thresholdOverride ?? 0.2;
+      const effectiveThreshold = thresholdOverride ?? 0.4;
       const searchOptions = {
         // @ts-ignore - Fuse.js types are incomplete
         limit: 1000,
@@ -295,8 +295,34 @@ export function useParcelPairings(): UseParcelPairingsReturn {
           { name: "fullAddress", weight: 2 }
         ]
       };
-      
-      const results = fuse.search(cleanQuery, searchOptions);
+
+      const fuseResults = fuse.search(cleanQuery, searchOptions);
+
+      // Fuse can drop correct matches for longer "number + street" queries (e.g. "505 tremont"
+      // returns 50 Tremont first and may omit 505). Include any address that starts with the
+      // query so exact matches stay in the candidate set; scoring will rank them.
+      const queryHasNumberAndStreet = parts.length >= 2 && /^\d+$/.test(parts[0]);
+      let results: FuseResult<ParcelPairing>[];
+      if (queryHasNumberAndStreet && cleanQuery.length >= 4) {
+        const norm = (s: string) =>
+          s.toLowerCase()
+            .replace(/\s+#\s*[\w-]+/g, '')
+            .replace(/\s+\d{5}(?:-\d{4})?/g, '')
+            .replace(/\s*,\s*/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        const prefixMatches: ParcelPairing[] = [];
+        for (const p of pairings) {
+          if (norm(p.fullAddress).startsWith(cleanQuery)) prefixMatches.push(p);
+        }
+        const prefixIds = new Set(prefixMatches.map((p) => p.parcelId));
+        results = [
+          ...prefixMatches.map((item) => ({ item, score: 0, refIndex: 0 })),
+          ...fuseResults.filter((r) => !prefixIds.has(r.item.parcelId)),
+        ];
+      } else {
+        results = fuseResults;
+      }
 
 
 
@@ -332,18 +358,18 @@ export function useParcelPairings(): UseParcelPairingsReturn {
           return { item: result.item, score, streetName: addrStreet, streetNum };
         }
 
-        // --- Street number scoring ---
+        // --- Street number scoring (dominant when user typed a number: exact match wins over Fuse preference) ---
         if (qNumberPart) {
-          const queryNum = parseInt(qNumberPart);
-          const [start, end] = addrNumber.split('-').map(n => parseInt(n));
+          const queryNum = parseInt(qNumberPart, 10);
+          const [start, end] = addrNumber.split('-').map((n) => parseInt(n, 10));
 
           if (!isNaN(queryNum) && !isNaN(start)) {
             if (!isNaN(end)) {
               const min = Math.min(start, end);
               const max = Math.max(start, end);
-              score *= (queryNum >= min && queryNum <= max) ? 0.1 : 10.0;
+              score *= (queryNum >= min && queryNum <= max) ? 0.01 : 100;
             } else {
-              score *= (queryNum === start) ? 0.1 : 10.0;
+              score *= (queryNum === start) ? 0.01 : 100;
             }
           }
         }
@@ -377,13 +403,20 @@ export function useParcelPairings(): UseParcelPairingsReturn {
         return { item: result.item, score, streetName: addrStreet, streetNum };
       });
 
-      // Sort by score, then by street number ascending for same-street results
+      // Sort by score, then when scores are close prefer exact street-number match, then street number ascending
+      const queryNumForSort = qNumberPart ? parseInt(qNumberPart, 10) : NaN;
       scoredResults.sort((a, b) => {
         const scoreDiff = a.score - b.score;
         if (scoreDiff !== 0) {
           // Use a relative tolerance: treat scores within 10% of each other as equivalent
           const avg = (a.score + b.score) / 2;
           if (Math.abs(scoreDiff) > avg * 0.1) return scoreDiff;
+        }
+        // When query includes a street number, prefer the result that matches it (e.g. "505 tre" → 505 before 50)
+        if (!isNaN(queryNumForSort)) {
+          const aMatches = a.streetNum === queryNumForSort ? 1 : 0;
+          const bMatches = b.streetNum === queryNumForSort ? 1 : 0;
+          if (bMatches - aMatches !== 0) return bMatches - aMatches;
         }
         if (a.streetName === b.streetName) return a.streetNum - b.streetNum;
         return scoreDiff;

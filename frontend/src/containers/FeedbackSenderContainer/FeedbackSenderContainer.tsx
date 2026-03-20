@@ -72,7 +72,7 @@ export const FeedbackSenderContainer = ({
   if (isSuccess) {
     return (
       <div className={styles.successMessage}>
-        Thank you for your feedback.
+        Thank you for your feedback! We're actively reviewing it to improve the user experience.
       </div>
     );
   }

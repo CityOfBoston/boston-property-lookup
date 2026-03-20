@@ -9,9 +9,10 @@ export function getMasterPrefix(parcelId: string): string {
 }
 
 /**
- * Returns true if the parcel ID represents a master parcel (last 3 digits are '000').
+ * Returns true if the parcel ID looks like a master parcel by convention (last 3 digits are '000').
+ * Use only when Layer 15 data is not available (e.g. pairings). Otherwise use result.isMasterParcel from the API.
  */
-export function isMasterParcel(parcelId: string): boolean {
+export function isMasterParcelBySuffix(parcelId: string): boolean {
   const normalized = parcelId.replace(/-/g, '');
   return normalized.slice(7) === '000';
 }
@@ -24,15 +25,23 @@ export function getMasterParcelId(parcelId: string): string {
 }
 
 /**
+ * Whether this search result is the group's master. Prefer Layer 15 (API) flag; fall back to suffix convention.
+ */
+function isGroupMaster(result: PropertySearchResult): boolean {
+  if (result.isMasterParcel) return true;
+  return isMasterParcelBySuffix(result.parcelId);
+}
+
+/**
  * Groups an array of PropertySearchResult by their 7-digit master prefix.
- * Within each group, the master parcel (ending in '000') appears first,
- * followed by children sorted by parcel ID.
+ * The master parcel is taken from Layer 15 (result.isMasterParcel) when present; otherwise the
+ * suffix convention (last 3 digits '000') is used. Master appears first, then children by parcel ID.
  *
  * Groups are returned in the order determined by the first appearance of any
  * member of that group in the input array (preserving search relevance order).
  *
  * @param prefixIndex Optional map from prefix to all parcels in that family,
- *   used to compute totalChildCount when expansion is limited.
+ *   used to compute totalChildCount when expansion is limited (uses suffix convention; no API data).
  */
 export function groupByMasterParcel(
   results: PropertySearchResult[],
@@ -51,7 +60,7 @@ export function groupByMasterParcel(
 
     const group = groupMap.get(prefix)!;
 
-    if (isMasterParcel(result.parcelId)) {
+    if (isGroupMaster(result)) {
       group.master = result;
     } else {
       group.children.push(result);
@@ -67,8 +76,7 @@ export function groupByMasterParcel(
     if (prefixIndex) {
       const family = prefixIndex.get(prefix);
       if (family) {
-        // Count non-master parcels in the full family
-        totalChildCount = family.filter(p => !isMasterParcel(p.parcelId)).length;
+        totalChildCount = family.filter((p) => !isMasterParcelBySuffix(p.parcelId)).length;
       }
     }
 

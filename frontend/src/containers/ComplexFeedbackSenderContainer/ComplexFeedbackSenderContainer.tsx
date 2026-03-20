@@ -79,8 +79,7 @@ export const ComplexFeedbackSenderContainer: React.FC<ComplexFeedbackSenderConta
       // Call success callback if provided
       onSuccess?.();
       
-      // Close modal on successful submission
-      close();
+      // Keep modal open to show success message (user closes via "Close form" button)
     } catch (error) {
       console.error('[ComplexFeedbackSenderContainer] Error submitting feedback:', error);
       const errorObj = error instanceof Error ? error : new Error('Failed to submit feedback');
