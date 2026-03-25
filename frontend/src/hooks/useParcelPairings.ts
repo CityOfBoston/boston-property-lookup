@@ -13,9 +13,42 @@ interface ParcelPairing {
   fullAddress: string;
 }
 
+/** Lowercase + cleanup + expand common street suffix abbreviations so "Court St" matches "Court Street" queries. */
+function normalizeAddressForSearch(s: string): string {
+  let t = s
+    .toLowerCase()
+    .replace(/\s+#\s*[\w-]+/g, '')
+    .replace(/\s+\d{5}(?:-\d{4})?/g, '')
+    .replace(/\s*,\s*/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const suffixExpansions: [RegExp, string][] = [
+    [/\b(st|str)\b/g, 'street'],
+    [/\b(ave|av)\b/g, 'avenue'],
+    [/\b(rd)\b/g, 'road'],
+    [/\b(pl)\b/g, 'place'],
+    [/\b(sq)\b/g, 'square'],
+    [/\b(ln)\b/g, 'lane'],
+    [/\b(dr)\b/g, 'drive'],
+    [/\b(ct)\b/g, 'court'],
+    [/\b(cir)\b/g, 'circle'],
+    [/\b(blvd)\b/g, 'boulevard'],
+    [/\b(ter)\b/g, 'terrace'],
+    [/\b(pkwy)\b/g, 'parkway'],
+    [/\b(wy)\b/g, 'way'],
+  ];
+  for (const [re, full] of suffixExpansions) {
+    t = t.replace(re, full);
+  }
+  return t.replace(/\s+/g, ' ').trim();
+}
+
+type ParcelPairingForSearch = ParcelPairing & { normAddress: string };
+
 interface UseParcelPairingsReturn {
   pairings: ParcelPairing[];
-  fuse: Fuse<ParcelPairing> | null;
+  fuse: Fuse<ParcelPairingForSearch> | null;
   prefixIndex: Map<string, ParcelPairing[]>;
   isLoading: boolean;
   error: string | null;
@@ -28,19 +61,28 @@ export function useParcelPairings(): UseParcelPairingsReturn {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize Fuse.js for fuzzy searching
+  const pairingsForSearch = useMemo((): ParcelPairingForSearch[] => {
+    return pairings.map((p) => ({
+      ...p,
+      normAddress: normalizeAddressForSearch(p.fullAddress),
+    }));
+  }, [pairings]);
+
+  // Initialize Fuse.js for fuzzy searching (normAddress aligns abbreviated suffixes with full-word queries)
   const fuse = useMemo(() => {
-    if (pairings.length === 0) return null;
-    
-    // Simple default Fuse.js options
-    return new Fuse(pairings, {
-      keys: ['fullAddress'],
+    if (pairingsForSearch.length === 0) return null;
+
+    return new Fuse(pairingsForSearch, {
+      keys: [
+        { name: 'fullAddress', weight: 0.35 },
+        { name: 'normAddress', weight: 0.65 },
+      ],
       includeScore: true,
       threshold: 0.3,
       minMatchCharLength: 2,
-      shouldSort: false
+      shouldSort: false,
     });
-  }, [pairings]);
+  }, [pairingsForSearch]);
 
   // Build a prefix index for efficient family lookups
   const prefixIndex = useMemo(() => {
@@ -296,30 +338,42 @@ export function useParcelPairings(): UseParcelPairingsReturn {
         ]
       };
 
-      const fuseResults = fuse.search(cleanQuery, searchOptions);
+      const normalizedQuery = normalizeAddressForSearch(cleanQuery);
+      const fuseResults = fuse.search(normalizedQuery, searchOptions);
 
       // Fuse can drop correct matches for longer "number + street" queries (e.g. "505 tremont"
       // returns 50 Tremont first and may omit 505). Include any address that starts with the
       // query so exact matches stay in the candidate set; scoring will rank them.
+      // Use normalized strings so "26 court street" matches "26 court st" and "25-55 court st pl".
       const queryHasNumberAndStreet = parts.length >= 2 && /^\d+$/.test(parts[0]);
-      let results: FuseResult<ParcelPairing>[];
+      let results: FuseResult<ParcelPairingForSearch>[];
       if (queryHasNumberAndStreet && cleanQuery.length >= 4) {
-        const norm = (s: string) =>
-          s.toLowerCase()
-            .replace(/\s+#\s*[\w-]+/g, '')
-            .replace(/\s+\d{5}(?:-\d{4})?/g, '')
-            .replace(/\s*,\s*/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-        const prefixMatches: ParcelPairing[] = [];
-        for (const p of pairings) {
-          if (norm(p.fullAddress).startsWith(cleanQuery)) prefixMatches.push(p);
+        const prefixMatches: ParcelPairingForSearch[] = [];
+        for (const p of pairingsForSearch) {
+          if (p.normAddress.startsWith(normalizedQuery)) prefixMatches.push(p);
         }
         const prefixIds = new Set(prefixMatches.map((p) => p.parcelId));
         results = [
           ...prefixMatches.map((item) => ({ item, score: 0, refIndex: 0 })),
           ...fuseResults.filter((r) => !prefixIds.has(r.item.parcelId)),
         ];
+      } else if (
+        !isParcelIdSearch &&
+        !queryHasNumberAndStreet &&
+        parts.length >= 2 &&
+        normalizedQuery.length >= 4
+      ) {
+        // Street-first queries (e.g. "Court Street"): ensure substring matches on normalized
+        // addresses are not lost to Fuse's limit or fuzzy noise (e.g. "Fourth Street" ranking).
+        const seenIds = new Set(fuseResults.map((r) => r.item.parcelId));
+        const substringMatches: FuseResult<ParcelPairingForSearch>[] = [];
+        for (const p of pairingsForSearch) {
+          if (!seenIds.has(p.parcelId) && p.normAddress.includes(normalizedQuery)) {
+            substringMatches.push({ item: p, score: 0, refIndex: 0 });
+            seenIds.add(p.parcelId);
+          }
+        }
+        results = [...substringMatches, ...fuseResults];
       } else {
         results = fuseResults;
       }
@@ -335,7 +389,7 @@ export function useParcelPairings(): UseParcelPairingsReturn {
       const qStreetPart = queryHasNumber ? parts[1] : parts[0];
       const qSuffixPart = queryHasNumber ? parts[2] : parts[1];
 
-      const scoredResults = results.map((result: FuseResult<ParcelPairing>) => {
+      const scoredResults = results.map((result: FuseResult<ParcelPairingForSearch>) => {
         let score = result.score || 1;
 
         const address = result.item.fullAddress.toLowerCase()
@@ -353,7 +407,7 @@ export function useParcelPairings(): UseParcelPairingsReturn {
         const addrSuffix = addressParts[2] || '';
         const streetNum = parseInt(addrNumber.split('-')[0]) || 0;
 
-        if (address === cleanQuery) {
+        if (result.item.normAddress === normalizedQuery) {
           score *= 0.1;
           return { item: result.item, score, streetName: addrStreet, streetNum };
         }
