@@ -1,5 +1,8 @@
 # Dynamic language for property tax periods and exemptions
 # This file contains all user-facing text that can be easily modified
+#
+# Checkpoint dates (first weekday of month when the 1st falls on a weekend, etc.) end at 5:00 PM
+# local time on that day — see frontend/src/utils/periods.ts (getCheckpointDeadlineEnd).
 
 periods:
   # TimeChanger date range constraints
@@ -74,7 +77,7 @@ periods:
     
     # Personal exemption open phase messages
     personal_exemption_granted: "**Granted:** We have granted a Personal Exemption for this property"
-    personal_exemption_not_granted: "**Not granted:** To file a Personal Exemption Application for **FY{current_fy}**, use the link below. The deadline for submission is **{deadline_date}**, at **12 a.m.** The current exemption amounts shown are for **FY{current_fy}**.\n\n[Download Personal Exemptions Application (PDF)](#/form?parcelId={parcel_id}&formType=personal)"
+    personal_exemption_not_granted: "**Not granted:** To file a Personal Exemption Application for **FY{current_fy}**, use the link below. The deadline for submission is **{deadline_date}**, at **5:00 p.m.** The current exemption amounts shown are for **FY{current_fy}**.\n\n[Download Personal Exemptions Application (PDF)](#/form?parcelId={parcel_id}&formType=personal)"
     
     # Exemption descriptions
     residential_exemption_description: "If you own and live in your property as a primary residence, you may qualify for the residential exemption. This fiscal year, the residential exemption will save qualified Boston homeowners up to ${max_amount}. The exemption amount will be applied to your third-quarter tax bill issued in late December. If you didn't get the credit on your bill and believe you should have, you can apply for a residential exemption."

@@ -1,10 +1,9 @@
-import { useDateContext } from '@hooks/useDateContext';
+import { useEffectiveNow } from '@hooks/useDateContext';
 import type { PropertyTaxesSectionData } from '@src/types';
 import { getExemptionPhase, getFiscalYear } from '@utils/periods';
 
 export function usePropertyTaxCalculations(sectionData: PropertyTaxesSectionData) {
-  const { date } = useDateContext();
-  const now = date;
+  const now = useEffectiveNow();
   const fiscalYear = getFiscalYear(now);
   
   // Determine if we're in the preliminary period (July-December)

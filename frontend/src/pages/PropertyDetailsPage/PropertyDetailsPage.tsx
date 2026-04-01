@@ -12,7 +12,7 @@ import {
 } from '@components/PropertyDetailsSection';
 import { LoadingIndicator } from '@components/LoadingIndicator';
 import { usePropertyDetails } from '@hooks/usePropertyDetails';
-import { useDateContext } from '@hooks/useDateContext';
+import { useDateContext, useEffectiveNow } from '@hooks/useDateContext';
 import TimeChanger from '@components/TimeChanger/TimeChanger';
 import { getComponentText } from '@utils/contentMapper';
 import { getAbatementPhase } from '@utils/periods';
@@ -43,6 +43,7 @@ export default function PropertyDetailsPage() {
   const [searchParams] = useSearchParams();
   const parcelId = searchParams.get('parcelId') || '';
   const { date } = useDateContext();
+  const effectiveNow = useEffectiveNow();
   const lastFiscalYearRef = useRef<number | null>(null);
   const lastParcelIdRef = useRef<string | null>(null);
   
@@ -133,12 +134,11 @@ export default function PropertyDetailsPage() {
     );
   }
 
-  // Check if abatements section should be shown
-  const now = date;
-  const calendarYear = now.getFullYear();
-  const nowMonth = now.getMonth();
+  // Check if abatements section should be shown (use real time for 5 PM checkpoint boundaries)
+  const calendarYear = date.getFullYear();
+  const nowMonth = date.getMonth();
   const abatementYear = nowMonth >= 6 ? calendarYear : calendarYear - 1;
-  const abatementPhase = getAbatementPhase(now, abatementYear);
+  const abatementPhase = getAbatementPhase(effectiveNow, abatementYear);
 
   // Track section view as button click
   const trackSectionView = (sectionName: string) => {

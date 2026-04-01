@@ -15,7 +15,7 @@
  */
 
 import { contentService } from '@services/content/ContentService';
-import { useDateContext } from '@hooks/useDateContext';
+import { useEffectiveNow } from '@hooks/useDateContext';
 import { getAbatementPhase } from '@utils/periods';
 
 export interface AbatementsContent {
@@ -28,11 +28,9 @@ export interface AbatementsContent {
  * Hook for abatements section content
  */
 export function useAbatementsContent(parcelId: string): AbatementsContent {
-  const { date } = useDateContext();
+  const now = useEffectiveNow();
   const content = contentService.getComponentContent('AbatementsSection');
   const pageContent = contentService.getComponentContent('propertyDetails', 'pages.propertyDetails');
-  
-  const now = date;
   const calendarYear = now.getFullYear();
   const nowMonth = now.getMonth();
   // For abatements, we need to use the calendar year when applications are due

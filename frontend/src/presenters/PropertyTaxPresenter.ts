@@ -110,7 +110,7 @@ export class PropertyTaxPresenter {
     if (phase === 'after_deadline' || phase === 'after_grace') {
       return getMarkdownText(
         languageService.getPropertyTaxMessage('residential_deadline_passed', {
-          next_year: this.context.fiscalYear,
+          current_fy: this.context.fiscalYear,
           deadline_date: formatDateForDisplay(
             EXEMPTION_APPLICATION_DEADLINE_DATE.getDate(this.context.calendarYear)
           ),
@@ -160,7 +160,7 @@ export class PropertyTaxPresenter {
     if (phase === 'after_deadline' || phase === 'after_grace') {
       return getMarkdownText(
         languageService.getPropertyTaxMessage('personal_deadline_passed', {
-          next_year: this.context.fiscalYear,
+          current_fy: this.context.fiscalYear,
           deadline_date: formatDateForDisplay(
             EXEMPTION_APPLICATION_DEADLINE_DATE.getDate(this.context.calendarYear)
           ),

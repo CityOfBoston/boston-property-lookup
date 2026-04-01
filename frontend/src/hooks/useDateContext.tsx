@@ -132,4 +132,34 @@ export function useDateContext(): DateContextType {
     throw new Error('useDateContext must be used within a DateProvider');
   }
   return context;
+}
+
+/**
+ * Combines the test/simulated calendar day from context with the user's real clock time
+ * so same-day deadlines (e.g. 5:00 PM on checkpoint days) resolve correctly.
+ */
+export function combineCalendarDateWithRealTime(calendarDate: Date): Date {
+  const real = new Date();
+  const d = new Date(calendarDate);
+  d.setHours(real.getHours(), real.getMinutes(), real.getSeconds(), real.getMilliseconds());
+  return d;
+}
+
+/**
+ * Like `date` from {@link useDateContext}, but with real hours/minutes/seconds for deadline logic.
+ * Re-renders periodically so phases update when a 5 PM boundary is crossed.
+ */
+export function useEffectiveNow(): Date {
+  const { date } = useDateContext();
+  const [effective, setEffective] = useState(() => combineCalendarDateWithRealTime(date));
+
+  useEffect(() => {
+    setEffective(combineCalendarDateWithRealTime(date));
+    const t = setInterval(() => {
+      setEffective(combineCalendarDateWithRealTime(date));
+    }, 30_000);
+    return () => clearInterval(t);
+  }, [date]);
+
+  return effective;
 } 

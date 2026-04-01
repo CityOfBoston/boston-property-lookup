@@ -14,7 +14,7 @@
  * @module hooks/logic/useExemptionPhases
  */
 
-import { useDateContext } from '@hooks/useDateContext';
+import { useEffectiveNow } from '@hooks/useDateContext';
 import { getExemptionPhase } from '@utils/periods';
 
 export interface ExemptionPhaseData {
@@ -38,8 +38,7 @@ export interface ExemptionAmounts {
  * Hook to determine exemption phases and status
  */
 export function useExemptionPhases(amounts: ExemptionAmounts): ExemptionPhaseData {
-  const { date } = useDateContext();
-  const now = date;
+  const now = useEffectiveNow();
   const calendarYear = now.getFullYear();
   
   // Exemption status calculations

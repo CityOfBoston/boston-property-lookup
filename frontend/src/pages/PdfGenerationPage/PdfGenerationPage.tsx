@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import PageLayout from '@layouts/PageLayout';
 import FormDetailsReview from '@components/FormDetailsReview';
@@ -6,15 +6,33 @@ import PdfReviewer from '@components/PdfReviewer';
 import { LoadingIndicator } from '@components/LoadingIndicator';
 import { usePdfGeneration } from '@hooks/usePdfGeneration';
 import { usePropertyDetails } from '@hooks/usePropertyDetails';
+import { useEffectiveNow } from '@hooks/useDateContext';
+import { isAbatementPdfFormAvailable, isExemptionPdfFormAvailable } from '@utils/periods';
 import type { PdfFormType } from '@src/types';
 import styles from './PdfGenerationPage.module.scss';
 
 export default function PdfGenerationPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const effectiveNow = useEffectiveNow();
 
   const parcelId = searchParams.get('parcelId');
   const formType = searchParams.get('formType') as PdfFormType | null;
+
+  const calendarYear = effectiveNow.getFullYear();
+  const nowMonth = effectiveNow.getMonth();
+  const abatementYear = nowMonth >= 6 ? calendarYear : calendarYear - 1;
+
+  const isFormPeriodOpen = useMemo(() => {
+    if (!formType) return false;
+    if (formType === 'residential' || formType === 'personal') {
+      return isExemptionPdfFormAvailable(effectiveNow, calendarYear);
+    }
+    if (formType === 'abatement') {
+      return isAbatementPdfFormAvailable(effectiveNow, abatementYear);
+    }
+    return false;
+  }, [formType, effectiveNow, calendarYear, abatementYear]);
 
   console.log('[PdfGenerationPage] Loaded with parcelId:', parcelId, 'formType:', formType);
 
@@ -65,6 +83,28 @@ export default function PdfGenerationPage() {
 
   if (!parcelId || !formType) {
     return null;
+  }
+
+  if (!isFormPeriodOpen) {
+    return (
+      <PageLayout>
+        <div className={styles.pdfGenerationPage}>
+          <div className={styles.errorBox}>
+            <h3 className={styles.errorTitle}>Application not available</h3>
+            <p className={styles.errorMessage}>
+              The deadline to download this application has passed, or this form is not available for the current date.
+            </p>
+            <button
+              type="button"
+              className={styles.backButton}
+              onClick={() => navigate(`/details?parcelId=${parcelId}`)}
+            >
+              Back to property details
+            </button>
+          </div>
+        </div>
+      </PageLayout>
+    );
   }
 
   return (

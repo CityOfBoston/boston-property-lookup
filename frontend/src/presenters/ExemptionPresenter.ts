@@ -19,7 +19,7 @@
 import React from 'react';
 import { renderMarkdown, getMarkdownText } from '@utils/markdown/markdownRenderer';
 import { languageService, getStringValue } from '@services/content/LanguageService';
-import { formatDateForDisplay, EXEMPTION_APPLICATION_DEADLINE_DATE } from '@utils/periods';
+import { formatDateForDisplay, EXEMPTION_APPLICATION_DEADLINE_DATE, getExemptionApplicationDeadlineEnd } from '@utils/periods';
 import type { StructuredDescription } from '@utils/periodsLanguage';
 
 export interface ExemptionPresenterContext {
@@ -60,7 +60,7 @@ export class ExemptionPresenter {
           exemption_type: 'Residential',
           next_year: this.context.fiscalYear,
           deadline_date: formatDateForDisplay(
-            EXEMPTION_APPLICATION_DEADLINE_DATE.getDate(this.context.calendarYear), 
+            getExemptionApplicationDeadlineEnd(this.context.calendarYear), 
             { withTime: true }
           ),
           current_year: this.context.calendarYear
@@ -84,7 +84,7 @@ export class ExemptionPresenter {
     } else {
       const message = getMarkdownText(
         languageService.getPropertyTaxMessage('residential_deadline_passed', {
-          next_year: this.context.fiscalYear,
+          current_fy: this.context.fiscalYear,
           deadline_date: formatDateForDisplay(
             EXEMPTION_APPLICATION_DEADLINE_DATE.getDate(this.context.calendarYear)
           ),
@@ -168,7 +168,7 @@ export class ExemptionPresenter {
       ) as StructuredDescription;
       
       const deadlineDate = formatDateForDisplay(
-        EXEMPTION_APPLICATION_DEADLINE_DATE.getDate(this.context.calendarYear), 
+        getExemptionApplicationDeadlineEnd(this.context.calendarYear), 
         { withTime: true }
       );
       const interpolatedText = desc.text
@@ -272,7 +272,7 @@ export class ExemptionPresenter {
           exemption_type: 'Personal',
           next_year: this.context.fiscalYear,
           deadline_date: formatDateForDisplay(
-            EXEMPTION_APPLICATION_DEADLINE_DATE.getDate(this.context.calendarYear), 
+            getExemptionApplicationDeadlineEnd(this.context.calendarYear), 
             { withTime: true }
           ),
           current_year: this.context.calendarYear
@@ -296,7 +296,7 @@ export class ExemptionPresenter {
     } else {
       const message = getMarkdownText(
         languageService.getPropertyTaxMessage('personal_deadline_passed', {
-          next_year: this.context.fiscalYear,
+          current_fy: this.context.fiscalYear,
           deadline_date: formatDateForDisplay(
             EXEMPTION_APPLICATION_DEADLINE_DATE.getDate(this.context.calendarYear)
           ),

@@ -4,7 +4,7 @@ export { useParcelPairingsContext, ParcelPairingsProvider } from './useParcelPai
 export { useSearchSuggestions } from './useSearchSuggestions';
 export { useSearchResults } from './useSearchResults';
 export { usePropertyFeedback } from './usePropertyFeedback';
-export { useDateContext, DateProvider } from './useDateContext';
+export { useDateContext, DateProvider, useEffectiveNow, combineCalendarDateWithRealTime } from './useDateContext';
 export { useModal } from './useModal';
 export { usePropertyTaxCalculations } from './usePropertyTaxCalculations';
 export { 
