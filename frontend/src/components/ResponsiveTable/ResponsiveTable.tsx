@@ -87,7 +87,7 @@ export const ResponsiveTable: React.FC<ResponsiveTableProps> = ({
         className="usa-link usa-link--external"
         rel="noreferrer"
         target="_blank"
-        href={`https://experience.arcgis.com/experience/8a1bb1e9a05b4a548df99443dfe5f2ff/#widget_11=text:${parcelId}&zoom_to_selection=true`}
+        href={`https://taxparcelviewer.boston.gov/?#widget_11=text:${parcelId}`}
       >
         {address}
       </a>

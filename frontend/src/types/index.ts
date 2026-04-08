@@ -499,11 +499,11 @@ export interface PropertySearchResults {
 }
 
 /**
- * A group of parcels sharing the same 7-digit master prefix.
- * The master parcel ends in '000'; children have non-zero suffixes.
+ * Parcels that belong to the same Layer 15 family (same effective master).
+ * Key is normalized master parcel ID: children group under their master; masters and standalones use their own parcel ID.
  */
 export interface ParcelGroup {
-  masterPrefix: string;
+  layer15FamilyKey: string;
   masterParcel: PropertySearchResult | null;
   children: PropertySearchResult[];
   allParcels: PropertySearchResult[];

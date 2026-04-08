@@ -14,6 +14,7 @@ import { useParcelPairingsContext } from '@hooks/useParcelPairingsContext';
 import { usePerformanceTracking } from '@services/analytics';
 import styles from './SearchResultsPage.module.scss';
 import { toWords } from 'number-to-words';
+import { getLayer15MasterParcelId } from '@utils/parcelGrouping';
 
 /** Maximum number of children shown per group before collapsing */
 const CHILDREN_VISIBLE_LIMIT = 4;
@@ -108,11 +109,7 @@ export default function SearchResultsPage() {
         ? group.children.slice(0, CHILDREN_VISIBLE_LIMIT)
         : group.children;
       const isOrphanGroup = !group.masterParcel;
-      // Use Layer 15 master when present; else first child's master; else suffix convention for link
-      const masterParcelId =
-        group.masterParcel?.parcelId ??
-        group.children[0]?.masterParcelId ??
-        group.masterPrefix + '000';
+      const masterParcelId = getLayer15MasterParcelId(group);
 
       if (group.masterParcel) {
         const result = group.masterParcel;
@@ -150,8 +147,8 @@ export default function SearchResultsPage() {
         });
       }
 
-      // "View all X units" link row pointing to master parcel page
-      if (hasChildren) {
+      // "View all X units" — only when Layer 15 gives a real master parcel ID (no synthetic IDs)
+      if (hasChildren && masterParcelId) {
         const totalCount = group.totalChildCount ?? group.children.length;
         const viewAllText = searchResultsContent.showAllUnits
           ?.replace('{count}', totalCount.toString()) || `View all ${totalCount} units`;

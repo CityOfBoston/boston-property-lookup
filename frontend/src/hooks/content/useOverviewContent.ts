@@ -115,7 +115,7 @@ export function useOverviewContent(data: OverviewSectionData): OverviewContent {
   
   // Helper to safely get URL with parcel_id replacement
   const getMapUrl = (parcelId: string): string => {
-    const url = content.map?.url || `https://experience.arcgis.com/experience/8a1bb1e9a05b4a548df99443dfe5f2ff/#widget_11=text:{parcel_id}&zoom_to_selection=true`;
+    const url = content.map?.url || `https://taxparcelviewer.boston.gov/?#widget_11=text:{parcel_id}`;
     return url.replace('{parcel_id}', parcelId);
   };
   

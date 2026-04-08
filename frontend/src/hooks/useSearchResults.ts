@@ -45,13 +45,11 @@ export const useSearchResults = (): UseSearchResultsReturn => {
   const [error, setError] = useState<Error | null>(null);
   const [hasMore, setHasMore] = useState(false);
 
-  const { search, prefixIndex } = useParcelPairingsContext();
+  const { search } = useParcelPairingsContext();
 
   // Stable refs for values used inside callbacks
   const searchRef = useRef(search);
   searchRef.current = search;
-  const prefixIndexRef = useRef(prefixIndex);
-  prefixIndexRef.current = prefixIndex;
 
   // Pagination tracking
   const prefixGroupsRef = useRef<string[][]>([]);
@@ -102,7 +100,7 @@ export const useSearchResults = (): UseSearchResultsReturn => {
       );
     }
 
-    const newGroups = groupByMasterParcel(summaries.results || [], prefixIndexRef.current);
+    const newGroups = groupByMasterParcel(summaries.results || []);
 
     if (isInitial) {
       setSearchResults(summaries);

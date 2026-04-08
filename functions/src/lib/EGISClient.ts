@@ -143,11 +143,10 @@ const realEstateDataLayerUrl = `${baseUrl}/13`;
  */
 const preliminaryTaxesDataLayerUrl = `${baseUrl}/14`;
 /**
- * EGIS Schema Layer 15: Master Parcel Children
- * Only child parcels appear in this layer. A parcel's presence as a parcel_id
- * means it is a child; its master_parcel_id field identifies the parent.
- * A parcel that appears as a master_parcel_id (but not as its own parcel_id)
- * is a master parcel.
+ * EGIS Schema Layer 15: Master Parcel lookup
+ * Rows exist per parcel per bill_year: parcel_id and master_parcel_id.
+ * Self-reference (parcel_id === master_parcel_id) is the master or standalone row;
+ * parcel_id !== master_parcel_id means that parcel is a child of master_parcel_id.
  *
  * Fields: OBJECTID, bill_year, master_parcel_id, parcel_id, address,
  * street_number, street_number_suffix, street_name, apt_unit,
@@ -268,6 +267,17 @@ const fetchEGISData = async (url: string, query: string): Promise<ArcGISFeature[
  * @param options Optional configuration for field names
  * @return Filtered array with only the highest fiscal year and quarter entries
  */
+function coerceYearFieldValue(value: unknown): number {
+  if (value === null || value === undefined || value === "") return 0;
+  const n = typeof value === "number" ? value : parseInt(String(value), 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * When multiple parcels appear in one result set, take the latest year **per parcel_id** — not one
+ * global max year. Otherwise a single row with a newer bill_year causes every other parcel's rows
+ * to be dropped (e.g. empty master parcel overview when Layer 15 is partially updated).
+ */
 function filterForHighestFiscalYearAndQuarter(
   features: ArcGISFeature[], 
   options?: { yearField?: string; hasQuarter?: boolean }
@@ -278,48 +288,60 @@ function filterForHighestFiscalYearAndQuarter(
   const hasQuarter = options?.hasQuarter !== false; // Default to true
 
   try {
-    // Process in batches to avoid memory issues
-    const batchSize = 1000;
-    let maxYear = 0;
-    let maxQuarter = 0;
+    const withParcelId = features.filter((f) => {
+      const raw = f.attributes?.parcel_id;
+      return raw !== null && raw !== undefined && String(raw).trim() !== "";
+    });
+    const withoutParcelId = features.filter((f) => {
+      const raw = f.attributes?.parcel_id;
+      return raw === null || raw === undefined || String(raw).trim() === "";
+    });
 
-    // Find max year and quarter in batches
-    for (let i = 0; i < features.length; i += batchSize) {
-      const batch = features.slice(i, Math.min(i + batchSize, features.length));
-      batch.forEach((feature) => {
-        const year = feature.attributes?.[yearField] || 0;
-        const quarter = hasQuarter ? (parseInt(feature.attributes?.quarter) || 0) : 0;
+    const filterGroup = (group: ArcGISFeature[]): ArcGISFeature[] => {
+      if (!group.length) return [];
+      let maxYear = 0;
+      let maxQuarter = 0;
+      for (const feature of group) {
+        const year = coerceYearFieldValue(feature.attributes?.[yearField]);
+        const quarter = hasQuarter ? (parseInt(String(feature.attributes?.quarter), 10) || 0) : 0;
         if (year > maxYear || (year === maxYear && quarter > maxQuarter)) {
           maxYear = year;
           maxQuarter = quarter;
         }
+      }
+      return group.filter((f) => {
+        const y = coerceYearFieldValue(f.attributes?.[yearField]);
+        const q = hasQuarter ? (parseInt(String(f.attributes?.quarter), 10) || 0) : 0;
+        if (y !== maxYear) return false;
+        if (!hasQuarter) return true;
+        return q === maxQuarter;
       });
+    };
+
+    let result: ArcGISFeature[] = [];
+
+    if (withParcelId.length > 0) {
+      const byParcel = new Map<string, ArcGISFeature[]>();
+      for (const f of withParcelId) {
+        const pid = normalizeParcelId(f.attributes.parcel_id);
+        if (!pid) continue;
+        const arr = byParcel.get(pid) ?? [];
+        arr.push(f);
+        byParcel.set(pid, arr);
+      }
+      for (const [, group] of byParcel) {
+        result.push(...filterGroup(group));
+      }
+    }
+
+    if (withoutParcelId.length > 0) {
+      result.push(...filterGroup(withoutParcelId));
     }
 
     if (hasQuarter) {
-      console.log(`[EGISClient] Found highest ${yearField}: ${maxYear}, quarter: ${maxQuarter}`);
+      console.log(`[EGISClient] Filtered ${features.length} features to ${result.length} (per-parcel latest ${yearField}/quarter where parcel_id present)`);
     } else {
-      console.log(`[EGISClient] Found highest ${yearField}: ${maxYear}`);
-    }
-
-    // Filter features in batches
-    const result: ArcGISFeature[] = [];
-    for (let i = 0; i < features.length; i += batchSize) {
-      const batch = features.slice(i, Math.min(i + batchSize, features.length));
-      const filtered = batch.filter((f) => {
-        const yearMatch = f.attributes?.[yearField] === maxYear;
-        if (!hasQuarter) {
-          return yearMatch;
-        }
-        return yearMatch && parseInt(f.attributes?.quarter) === maxQuarter;
-      });
-      result.push(...filtered);
-    }
-
-    if (hasQuarter) {
-      console.log(`[EGISClient] Filtered ${features.length} features to ${result.length} features (${yearField}=${maxYear} Q${maxQuarter})`);
-    } else {
-      console.log(`[EGISClient] Filtered ${features.length} features to ${result.length} features (${yearField}=${maxYear})`);
+      console.log(`[EGISClient] Filtered ${features.length} features to ${result.length} (per-parcel latest ${yearField} where parcel_id present)`);
     }
     return result;
   } catch (error) {
@@ -1260,25 +1282,12 @@ export const fetchPropertyDetailsByParcelIdHelper = async (
   const addressData = realEstateData;
   console.log("[EGISClient] Address data from Layer 13:", addressData);
 
-  // Helper function to extract master parcel ID from apartment complex identifier
-  const extractMasterParcelId = (complexIdentifier: string | undefined): string | undefined => {
-    if (!complexIdentifier || !complexIdentifier.trim()) return undefined;
-    // Split by space or special characters and take the first part
-    const match = complexIdentifier.match(/^[A-Za-z0-9]+/);
-    const result = match ? match[0] : undefined;
-    console.log("[EGISClient] Master parcel ID:", result);
-    return result;
-  };
-
-  // Query Layer 15 for authoritative master/child relationship
+  // Query Layer 15 for master/child relationship (sole source for masterParcelId on details)
   const masterParcelInfo = await fetchMasterParcelInfoHelper(parcelId);
 
   // Check if this unit belongs to an apartment complex (has non-empty complex field)
   const isPartOfComplex = !!condoAttrs?.complex?.trim();
-  // Layer 15 is authoritative for child→master; condo complex can override for display
-  const masterParcelId =
-    masterParcelInfo.masterParcelId ??
-    (isPartOfComplex ? extractMasterParcelId(condoAttrs.complex) : undefined);
+  const masterParcelId = masterParcelInfo.masterParcelId ?? undefined;
 
   // Log property structure and layout decision
   const layout = residentialPropertyFeatures.length > 1 ? "multiple_buildings" :
