@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, startTransition, useMemo } from 'react';
 import { useParcelPairingsContext } from './useParcelPairingsContext';
 
 interface UseSearchSuggestionsOptions {
@@ -14,200 +14,141 @@ interface SearchSuggestion {
   fullAddress: string;
 }
 
-export const useSearchSuggestions = ({ 
-  debounceMs = 200,
+/**
+ * Suggestion list updates are debounced: work runs only after the query has been
+ * stable for `debounceMs`. Each keystroke bumps `searchSeqRef` so in-flight
+ * results are dropped. Result state updates use startTransition so the input
+ * stays responsive. Loading is true while the input does not yet match the
+ * suggestions snapshot (debounce pending or search running).
+ */
+export const useSearchSuggestions = ({
+  debounceMs = 500,
   maxSuggestions = 20,
   minQueryLength = 1,
   isMobile = false,
-  threshold
+  threshold,
 }: UseSearchSuggestionsOptions = {}) => {
   const [searchValue, setSearchValue] = useState('');
   const [debouncedValue, setDebouncedValue] = useState('');
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const { search, isLoading: isPairingsLoading, error } = useParcelPairingsContext();
-  
-  // Refs for request cancellation
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const searchIdRef = useRef<number>(0);
-  const searchFrameRef = useRef<number | null>(null);
 
-  // Track the latest search value for debouncing
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Bumps on every `searchValue` change so stale suggestion work is ignored. */
+  const searchSeqRef = useRef(0);
   const latestSearchRef = useRef(searchValue);
   latestSearchRef.current = searchValue;
 
-  // Debounce the search value with mobile optimization
+  const effectiveDebounceMs = isMobile ? Math.round(debounceMs * 1.15) : debounceMs;
+
+  // Debounce: only commit `debouncedValue` after the query stops changing.
   useEffect(() => {
-    // Clear any existing timeout and animation frame
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
-    if (searchFrameRef.current) {
-      cancelAnimationFrame(searchFrameRef.current);
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
     }
 
-    // If the value is empty or too short, clear suggestions immediately
-    if (!searchValue.trim() || searchValue.trim().length < minQueryLength) {
+    const trimmed = searchValue.trim();
+    if (!trimmed || trimmed.length < minQueryLength) {
+      setDebouncedValue('');
       setSuggestions([]);
       setIsSearching(false);
-      setDebouncedValue('');
       return;
     }
 
-    // Use shorter debounce for shorter queries to feel more responsive
-    const queryLength = searchValue.trim().length;
-    
-    // Adjust debounce times for mobile
-    const mobileMultiplier = isMobile ? 1.5 : 1;
-    const adaptiveDebounce = queryLength <= 2 ? Math.min(debounceMs, 30 * mobileMultiplier) : 
-                            queryLength <= 4 ? Math.min(debounceMs, 45 * mobileMultiplier) : 
-                            debounceMs * mobileMultiplier;
-
-    // Only debounce if there's actually a search value
-    searchTimeoutRef.current = setTimeout(() => {
-      // Use requestAnimationFrame for smoother updates
-      searchFrameRef.current = requestAnimationFrame(() => {
-        // Only update if this is still the latest search value
-        if (latestSearchRef.current === searchValue) {
-          setDebouncedValue(searchValue);
-        }
-      });
-    }, adaptiveDebounce);
+    debounceTimerRef.current = setTimeout(() => {
+      debounceTimerRef.current = null;
+      setDebouncedValue(latestSearchRef.current.trim());
+    }, effectiveDebounceMs);
 
     return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
-      if (searchFrameRef.current) {
-        cancelAnimationFrame(searchFrameRef.current);
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
       }
     };
-  }, [searchValue, debounceMs, minQueryLength, isMobile]);
+  }, [searchValue, effectiveDebounceMs, minQueryLength]);
 
-  // Track the latest debounced value for search cancellation
-  const latestDebouncedRef = useRef(debouncedValue);
-  latestDebouncedRef.current = debouncedValue;
-
-  // Perform search with cancellation and mobile optimization
+  // Invalidate in-flight work as soon as the query changes (stale search results discarded).
   useEffect(() => {
-    // Clear suggestions if query is too short or empty
-    if (!debouncedValue.trim() || debouncedValue.trim().length < minQueryLength) {
-      setSuggestions([]);
-      setIsSearching(false);
+    searchSeqRef.current += 1;
+  }, [searchValue]);
+
+  // Run search only when `debouncedValue` updates (after idle debounce).
+  useEffect(() => {
+    const trimmed = debouncedValue.trim();
+    if (!trimmed || trimmed.length < minQueryLength) {
       return;
     }
 
-    // Increment search ID to cancel previous searches
-    const currentSearchId = ++searchIdRef.current;
+    const seqAtStart = searchSeqRef.current;
     setIsSearching(true);
 
-    // Use requestAnimationFrame for smoother updates
-    const performSearch = () => {
-      // Check if this search was cancelled or outdated
-      if (currentSearchId !== searchIdRef.current || 
-          latestDebouncedRef.current !== debouncedValue) {
+    try {
+      const searchResults = search(trimmed, threshold);
+
+      if (seqAtStart !== searchSeqRef.current) {
+        setIsSearching(false);
         return;
       }
 
-      try {
-        // Perform the fuzzy search
-        const searchResults = search(debouncedValue, threshold);
-        
-        // Check again if this search was cancelled or outdated
-        if (currentSearchId !== searchIdRef.current || 
-            latestDebouncedRef.current !== debouncedValue) {
-          return;
-        }
-        
-        // Use requestAnimationFrame for smoother UI updates
-        searchFrameRef.current = requestAnimationFrame(() => {
-          // Transform and limit results
-          const transformedResults = searchResults
-            .slice(0, maxSuggestions)
-            .map(result => ({
-              parcelId: result.parcelId,
-              fullAddress: result.fullAddress,
-            }));
+      const transformedResults = searchResults.slice(0, maxSuggestions).map((result) => ({
+        parcelId: result.parcelId,
+        fullAddress: result.fullAddress,
+      }));
 
-          setSuggestions(transformedResults);
-          setIsSearching(false);
-        });
-      } catch (error) {
-        console.error('[useSearchSuggestions] Search error:', error);
-        if (currentSearchId === searchIdRef.current && 
-            latestDebouncedRef.current === debouncedValue) {
+      startTransition(() => {
+        setSuggestions(transformedResults);
+        setIsSearching(false);
+      });
+    } catch (err) {
+      console.error('[useSearchSuggestions] Search error:', err);
+      if (seqAtStart === searchSeqRef.current) {
+        startTransition(() => {
           setSuggestions([]);
           setIsSearching(false);
-        }
+        });
       }
-    };
-
-    // For very short queries (1-2 chars), execute immediately since they're fast
-    // For longer queries, use requestIdleCallback for non-blocking execution
-    const queryLength = debouncedValue.trim().length;
-    
-    let cleanupFunction: (() => void) | undefined;
-
-    if (queryLength <= 2) {
-      // Execute immediately for short queries - they're fast and users expect instant feedback
-      queueMicrotask(performSearch);
-    } else if ('requestIdleCallback' in window && !isMobile) {
-      // Use requestIdleCallback only for desktop - it can be problematic on mobile
-      const idleCallbackId = (window as any).requestIdleCallback(performSearch, { timeout: 50 });
-      cleanupFunction = () => {
-        if ('cancelIdleCallback' in window) {
-          (window as any).cancelIdleCallback(idleCallbackId);
-        }
-      };
-    } else {
-      // Use requestAnimationFrame for mobile or fallback
-      searchFrameRef.current = requestAnimationFrame(performSearch);
-      cleanupFunction = () => {
-        if (searchFrameRef.current) {
-          cancelAnimationFrame(searchFrameRef.current);
-        }
-      };
     }
+  }, [debouncedValue, minQueryLength, search, maxSuggestions, threshold]);
 
-    // Return cleanup function if one was created
-    return cleanupFunction;
-  }, [debouncedValue, minQueryLength, search, maxSuggestions, isMobile, threshold]);
+  const handleSetSearchValue = useCallback(
+    (value: string) => {
+      setSearchValue(value);
 
-  const handleSetSearchValue = useCallback((value: string) => {
-    // Cancel any ongoing search by incrementing the search ID
-    searchIdRef.current++;
-    
-    // Cancel any pending animation frames
-    if (searchFrameRef.current) {
-      cancelAnimationFrame(searchFrameRef.current);
-    }
-    
-    setSearchValue(value);
-    
-    // Clear suggestions immediately for empty or short queries
-    if (!value.trim() || value.trim().length < minQueryLength) {
-      setSuggestions([]);
-      setIsSearching(false);
-    }
-  }, [minQueryLength]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
+      if (!value.trim() || value.trim().length < minQueryLength) {
+        setSuggestions([]);
+        setIsSearching(false);
       }
-      if (searchFrameRef.current) {
-        cancelAnimationFrame(searchFrameRef.current);
-      }
-    };
-  }, []);
+    },
+    [minQueryLength],
+  );
+
+  const trimmedQuery = searchValue.trim();
+  const trimmedDebounced = debouncedValue.trim();
+
+  const suggestionsMatchCurrentQuery = useMemo(() => {
+    if (trimmedQuery.length < minQueryLength) {
+      return true;
+    }
+    return trimmedQuery === trimmedDebounced && !isSearching;
+  }, [trimmedQuery, trimmedDebounced, minQueryLength, isSearching]);
+
+  /** True while debounce hasn't caught the typed query or a search for the committed query is running. */
+  const isSuggestionsLoading =
+    trimmedQuery.length >= minQueryLength && !suggestionsMatchCurrentQuery;
+
+  /** Pairings download, or suggestions list not yet aligned with the input (for the search bar UI). */
+  const isLoading = isPairingsLoading || isSuggestionsLoading;
 
   return {
     suggestions,
-    isLoading: isPairingsLoading || isSearching,
+    isLoading,
+    isPairingsLoading,
+    isSuggestionsLoading,
     error,
     searchValue,
     setSearchValue: handleSetSearchValue,
   };
-}; 
+};

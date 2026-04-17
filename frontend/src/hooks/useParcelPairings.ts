@@ -7,41 +7,17 @@ import Fuse, { FuseResult } from 'fuse.js';
 import { getCurrentParcelIdAddressPairings } from './firebaseConfig';
 import { indexedDBService } from './useIndexedDB';
 import { getMasterPrefix } from '@utils/parcelGrouping';
+import {
+  extractTrailingUnitFromQuery,
+  extractUnitFromAddress,
+  normalizeAddressForSearch,
+  stripApartmentSegments,
+  unitsMatch,
+} from '@utils/addressSearchNormalize';
 
 interface ParcelPairing {
   parcelId: string;
   fullAddress: string;
-}
-
-/** Lowercase + cleanup + expand common street suffix abbreviations so "Court St" matches "Court Street" queries. */
-function normalizeAddressForSearch(s: string): string {
-  let t = s
-    .toLowerCase()
-    .replace(/\s+#\s*[\w-]+/g, '')
-    .replace(/\s+\d{5}(?:-\d{4})?/g, '')
-    .replace(/\s*,\s*/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  const suffixExpansions: [RegExp, string][] = [
-    [/\b(st|str)\b/g, 'street'],
-    [/\b(ave|av)\b/g, 'avenue'],
-    [/\b(rd)\b/g, 'road'],
-    [/\b(pl)\b/g, 'place'],
-    [/\b(sq)\b/g, 'square'],
-    [/\b(ln)\b/g, 'lane'],
-    [/\b(dr)\b/g, 'drive'],
-    [/\b(ct)\b/g, 'court'],
-    [/\b(cir)\b/g, 'circle'],
-    [/\b(blvd)\b/g, 'boulevard'],
-    [/\b(ter)\b/g, 'terrace'],
-    [/\b(pkwy)\b/g, 'parkway'],
-    [/\b(wy)\b/g, 'way'],
-  ];
-  for (const [re, full] of suffixExpansions) {
-    t = t.replace(re, full);
-  }
-  return t.replace(/\s+/g, ' ').trim();
 }
 
 type ParcelPairingForSearch = ParcelPairing & { normAddress: string };
@@ -254,13 +230,19 @@ export function useParcelPairings(): UseParcelPairingsReturn {
   const isParcelIdSearch = !!parcelIdMatch;
   
 
-  // For parcel ID search, just use the query without spaces/hyphens
-  const cleanQuery = isParcelIdSearch ? queryWithoutSpacesHyphens : query.trim().toLowerCase()
-    .replace(/[^\w\s-]/g, ' ')  // Replace special chars with space
-    .replace(/\s+#\s*[\w-]+/g, '')  // Remove apartment numbers (e.g., #20-1)
-    .replace(/\s+\d{5}(?:-\d{4})?/g, '')  // Remove zip codes (e.g., 02119 or 02119-1234)
-    .replace(/\s+/g, ' ')       // Normalize spaces
-    .trim();
+  const queryUnit = !isParcelIdSearch ? extractTrailingUnitFromQuery(query) : null;
+
+  // Strip apartment tokens before removing punctuation so "#48" is not lost.
+  const cleanQuery = isParcelIdSearch
+    ? queryWithoutSpacesHyphens
+    : (() => {
+        let t = query.trim().toLowerCase();
+        t = stripApartmentSegments(t);
+        t = t.replace(/\s+\d{5}(?:-\d{4})?/g, ' ');
+        t = t.replace(/[^\w\s-]/g, ' ');
+        t = t.replace(/\s+/g, ' ').trim();
+        return t;
+      })();
 
     // Split query into parts
     const parts = cleanQuery.split(' ');
@@ -392,10 +374,12 @@ export function useParcelPairings(): UseParcelPairingsReturn {
       const scoredResults = results.map((result: FuseResult<ParcelPairingForSearch>) => {
         let score = result.score || 1;
 
-        const address = result.item.fullAddress.toLowerCase()
-          .replace(/\s+#\s*[\w-]+/g, '')
-          .replace(/\s+\d{5}(?:-\d{4})?/g, '')
-          .replace(/\s*,\s*/g, ' ');
+        const address = stripApartmentSegments(
+          result.item.fullAddress
+            .toLowerCase()
+            .replace(/\s+\d{5}(?:-\d{4})?/g, '')
+            .replace(/\s*,\s*/g, ' ')
+        );
 
         const addressParts = address.split(/\s+/)
           .map(part => part.trim())
@@ -451,6 +435,18 @@ export function useParcelPairings(): UseParcelPairingsReturn {
 
           if (querySuffix && addressSuffix) {
             score *= (querySuffix === addressSuffix) ? 0.5 : 2.0;
+          }
+        }
+
+        // --- Unit / apartment (when user typed a trailing apt, #, no., etc.) ---
+        if (queryUnit) {
+          const addrUnit = extractUnitFromAddress(result.item.fullAddress);
+          if (addrUnit && !unitsMatch(addrUnit, queryUnit)) {
+            score *= 400;
+          } else if (addrUnit && unitsMatch(addrUnit, queryUnit)) {
+            score *= 0.05;
+          } else if (!addrUnit) {
+            score *= 2.5;
           }
         }
 

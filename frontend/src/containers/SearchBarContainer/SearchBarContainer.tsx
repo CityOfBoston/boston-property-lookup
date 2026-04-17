@@ -31,7 +31,7 @@ export const SearchBarContainer = ({
   labelText,
   helperText,
   placeholderText,
-  debounceMs = 10,
+  debounceMs = 500,
   onFocus,
   onBlur,
   onClear,
@@ -65,6 +65,7 @@ export const SearchBarContainer = ({
   const {
     suggestions,
     isLoading,
+    isPairingsLoading,
     error,
     searchValue,
     setSearchValue,
@@ -200,8 +201,8 @@ export const SearchBarContainer = ({
     hasBeenFocused
   });
 
-  // Show loading indicator when initially loading parcel pairings
-  if (isLoading && !isFocused) {
+  // Full-page loader only while parcel pairings are downloading (not while debouncing search).
+  if (isPairingsLoading && !isFocused) {
     return (
       <div style={{ padding: '2rem' }}>
         <LoadingIndicator 
