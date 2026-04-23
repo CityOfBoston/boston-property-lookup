@@ -351,6 +351,21 @@ function filterForHighestFiscalYearAndQuarter(
 }
 
 /**
+ * Build display names for all current-owner rows (Layer 7), in seqno order.
+ * Matches the per-parcel list used in property details when multiple `owner_name` rows exist.
+ */
+function ownerNamesFromCurrentOwnerFeatures(features: ArcGISFeature[]): string[] {
+  if (!features?.length) return [];
+  const ordered = [...features].sort(
+    (a, b) =>
+      (Number(a.attributes?.seqno) || 0) - (Number(b.attributes?.seqno) || 0)
+  );
+  return ordered
+    .map((f) => toCamelCase(f.attributes?.owner_name) || "")
+    .filter(Boolean);
+}
+
+/**
  * Helper function to prioritize values from multiple data layers.
  * Priority order: residential attributes > condo attributes
  * Returns the first value that is not null, undefined, or an empty string (but allows 0 for numbers).
@@ -486,20 +501,20 @@ export const fetchAllParcelIdAddressPairingsHelper = async (): Promise<{parcelId
 };
 
 /**
- * Helper function to get property summaries - parcelId, full address, owner and assessed value for the current year given parcelIds.
+ * Helper function to get property summaries - parcelId, full address, all current owner names, and assessed value.
  * Combines data from multiple layers:
  * - Layer 13 (Real Estate) for address fields and property type info
- * - Layer 7 (Current Owners) for owner information
+ * - Layer 7 (Current Owners) for all `owner_name` rows for the parcel (ordered by `seqno`)
  * - Layer 12 (Taxes) for assessed value (total_assessed_value)
  *
  * @param parcelIds Array of parcel IDs to search for.
  * @param fiscalYearAndQuarter Optional fiscal year and quarter for data filtering.
- * @return Array of property summary objects with parcelId, fullAddress, owner, and assessedValue.
+ * @return Array of property summary objects with parcelId, fullAddress, owners, and assessedValue.
  */
 export const fetchPropertySummariesByParcelIdsHelper = async (
   parcelIds: string[],
   fiscalYearAndQuarter?: { year: number; quarter: string }
-): Promise<Array<{parcelId: string, fullAddress: string, owner: string, assessedValue: number, isMasterParcel: boolean, masterParcelId: string | null}>> => {
+): Promise<Array<{parcelId: string, fullAddress: string, owners: string[], assessedValue: number, isMasterParcel: boolean, masterParcelId: string | null}>> => {
   console.log(`[EGISClient] Starting fetchPropertySummariesByParcelIds for ${parcelIds.length} parcelIds`);
 
   if (fiscalYearAndQuarter) {
@@ -540,7 +555,7 @@ export const fetchPropertySummariesByParcelIdsHelper = async (
       if (fiscalYearAndQuarter) {
         ownersWhereClause += ` AND fiscal_year=${fiscalYearAndQuarter.year} AND quarter=${fiscalYearAndQuarter.quarter}`;
       }
-      const ownersOutFields = 'parcel_id,fiscal_year,quarter,owner_name';
+      const ownersOutFields = 'parcel_id,fiscal_year,quarter,seqno,owner_name';
       const ownersQuery = `?where=${ownersWhereClause}&outFields=${ownersOutFields}&returnGeometry=false&f=json`;
       let ownersFeatures = await fetchEGISData(currentOwnersDataLayerUrl, ownersQuery);
       if (!fiscalYearAndQuarter) {
@@ -623,7 +638,7 @@ export const fetchPropertySummariesByParcelIdsHelper = async (
 
     // Combine all batch results into single maps
     const addressMap = new Map<string, any>();
-    const ownersMap = new Map<string, string>();
+    const ownerFeaturesByParcel = new Map<string, ArcGISFeature[]>();
     const valueMap = new Map<string, number>();
     const childToMasterMap = new Map<string, string>();
     const confirmedMasters = new Set<string>();
@@ -633,7 +648,11 @@ export const fetchPropertySummariesByParcelIdsHelper = async (
         addressMap.set(normalizeParcelId(f.attributes.parcel_id), f.attributes);
       }
       for (const f of batch.ownersFeatures) {
-        ownersMap.set(normalizeParcelId(f.attributes.parcel_id), f.attributes.owner_name);
+        const pid = normalizeParcelId(f.attributes.parcel_id);
+        if (!pid) continue;
+        const list = ownerFeaturesByParcel.get(pid) ?? [];
+        list.push(f);
+        ownerFeaturesByParcel.set(pid, list);
       }
       for (const f of batch.taxesFeatures) {
         const pid = normalizeParcelId(f.attributes.parcel_id);
@@ -668,14 +687,16 @@ export const fetchPropertySummariesByParcelIdsHelper = async (
       return {
         parcelId,
         fullAddress: addressMap.has(nid) ? constructFullAddress(addressMap.get(nid)!) : "Address not available",
-        owner: ownersMap.has(nid) ? toCamelCase(ownersMap.get(nid)) : "",
+        owners: ownerNamesFromCurrentOwnerFeatures(ownerFeaturesByParcel.get(nid) ?? []),
         assessedValue: valueMap.get(nid) || 0,
         isMasterParcel: isMaster && !isChild,
         masterParcelId: isChild ? childToMasterMap.get(nid)! : null,
       };
     });
 
-    console.log(`[EGISClient] Found ${results.length} property summaries (${addressMap.size} addresses, ${ownersMap.size} owners, ${valueMap.size} values)`);
+    console.log(
+      `[EGISClient] Found ${results.length} property summaries (${addressMap.size} addresses, ${ownerFeaturesByParcel.size} parcels with owner rows, ${valueMap.size} values)`
+    );
     return results;
   } catch (error) {
     console.error("[EGISClient] Error fetching property summaries:", error);

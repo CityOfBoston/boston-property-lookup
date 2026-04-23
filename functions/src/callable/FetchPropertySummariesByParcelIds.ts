@@ -48,7 +48,7 @@ export const fetchPropertySummariesByParcelIds = createCallable(async (data: { p
     const results: PropertySearchResult[] = summaries.map((summary) => ({
       parcelId: summary.parcelId,
       address: summary.fullAddress,
-      owners: [summary.owner],
+      owners: summary.owners,
       value: summary.assessedValue,
       isMasterParcel: summary.isMasterParcel,
       masterParcelId: summary.masterParcelId,

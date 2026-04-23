@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EGIS ArcGIS layer explorer</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --text: #e6edf3;
+      --muted: #8b9cad;
+      --border: #2d3a4d;
+      --accent: #58a6ff;
+      --ok: #3fb950;
+      --err: #f85149;
+      --font: "Segoe UI", system-ui, sans-serif;
+      --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+    }
+    header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel);
+    }
+    header h1 {
+      margin: 0 0 0.35rem 0;
+      font-size: 1.15rem;
+      font-weight: 600;
+    }
+    header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.875rem;
+      max-width: 64rem;
+    }
+    main { padding: 1.25rem 1.5rem 3rem; max-width: 72rem; margin: 0 auto; }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+      gap: 0.75rem 1rem;
+      align-items: end;
+      margin-bottom: 1rem;
+    }
+    label { display: block; font-size: 0.75rem; color: var(--muted); margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    select, input {
+      width: 100%;
+      padding: 0.45rem 0.55rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #0d1117;
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+    .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+    button#fetchBtn {
+      padding: 0.5rem 1.1rem;
+      border: none;
+      border-radius: 6px;
+      background: var(--accent);
+      color: #0d1117;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    button#fetchBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .hint { font-size: 0.8rem; color: var(--muted); }
+    .banner {
+      font-size: 0.8rem;
+      color: var(--muted);
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-bottom: 1rem;
+    }
+    .status { font-size: 0.85rem; margin: 0.5rem 0; min-height: 1.2em; }
+    .status.err { color: var(--err); }
+    .status.ok { color: var(--ok); }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 0.9rem;
+      overflow: hidden;
+    }
+    .card-eyebrow {
+      margin: 0;
+      padding: 0.6rem 0.9rem 0;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #c9d1d9;
+    }
+    .card-topnote { padding: 0.35rem 0.9rem; }
+    .row-label { color: var(--muted); font-size: 0.8rem; font-weight: 600; margin: 0 0 0.35rem 0; }
+    .block { padding: 0.75rem 0.9rem; position: relative; }
+    .block + .block { border-top: 1px solid var(--border); }
+    pre, .field-pre {
+      margin: 0;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: #c9d1d9;
+    }
+    .copy-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+    .copy-bar {
+      flex: 1;
+      min-width: 0;
+    }
+    .copy-ic {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2rem;
+      height: 2rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #0d1117;
+      color: var(--muted);
+      cursor: pointer;
+      margin-top: 0.1rem;
+    }
+    .copy-ic:hover { color: var(--accent); border-color: var(--accent); }
+    .copy-ic svg { width: 1rem; height: 1rem; }
+    .layer-note { font-size: 0.8rem; color: var(--muted); margin: 0.2rem 0 0.5rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>EGIS ArcGIS layer explorer</h1>
+    <p>
+      Mirrors the MapServer layer queries used in <code>EGISClient.ts</code> (dev/prod base URLs from functions env). Defaults: environment <strong>dev</strong>, fiscal year and quarter = current Boston FY period, parcel empty. Fill parcel ID, then <strong>Fetch all layers</strong>. If the browser blocks cross-origin requests, copy the curl and run in a terminal.
+    </p>
+  </header>
+  <main>
+    <form class="form-grid" id="opts" onsubmit="return false;">
+      <div>
+        <label for="env">Environment</label>
+        <select id="env">
+          <option value="dev" selected>dev (test MapServer)</option>
+          <option value="prod">prod</option>
+        </select>
+      </div>
+      <div>
+        <label for="fy">Fiscal year</label>
+        <input type="number" id="fy" min="2000" max="2100" step="1" />
+      </div>
+      <div>
+        <label for="q">Quarter</label>
+        <select id="q">
+          <option value="1">1 (Jul–Dec → preliminary taxes layer)</option>
+          <option value="3" selected>3 (Jan–Jun → final taxes layer)</option>
+        </select>
+      </div>
+      <div style="grid-column: span 2;">
+        <label for="parcel">Parcel ID</label>
+        <input type="text" id="parcel" inputmode="numeric" placeholder="10 digits, e.g. 0100238000" autocomplete="off" />
+      </div>
+    </form>
+    <div class="actions">
+      <button type="button" id="fetchBtn">Fetch all layers</button>
+      <button type="button" id="defaultFyBtn" class="hint" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:0.45rem 0.75rem;border-radius:6px;cursor:pointer;">Set FY/Q to &ldquo;now&rdquo;</button>
+    </div>
+    <p class="hint" style="margin:0.6rem 0 0;">Fiscal year/quarter follows <code>getFiscalYearAndQuarter</code>: before July 1 → current calendar year + Q3; on/after July 1 → next calendar year + Q1.</p>
+    <div class="banner" id="corsNote">
+      CORS: responses load in-page only if <code>gisportal.boston.gov</code> allows this origin (often <code>file://</code> is blocked; open via a static server or use curl from the page).
+    </div>
+    <p class="status" id="globalStatus" aria-live="polite"></p>
+    <div id="results"></div>
+  </main>
+
+  <script>
+    const BASE = {
+      dev: "https://gisportal.boston.gov/arcgis/rest/services/Assessing/properties_boston_gov_test/MapServer",
+      prod: "https://gisportal.boston.gov/arcgis/rest/services/Assessing/properties_boston_gov/MapServer"
+    };
+
+    const LAYERS = [
+      { id: 0, name: "Layer 0 — Geometry", note: "PID; same join layer as static map geometry." },
+      { id: 5, name: "Layer 5 — Value history", note: "Where field is Parcel_id (casing as in EGISClient)." },
+      { id: 6, name: "Layer 6 — Residential property attributes", note: "Fiscal year + quarter when provided." },
+      { id: 7, name: "Layer 7 — Current owners", note: "Fiscal year + quarter when provided." },
+      { id: 9, name: "Layer 9 — Condo attributes", note: "Fiscal year + quarter when provided." },
+      { id: 10, name: "Layer 10 — Outbuildings", note: "Fiscal year + quarter when provided." },
+      { id: 11, name: "Layer 11 — Sales", note: "No fiscal year fields in this layer." },
+      { id: 12, name: "Layer 12 — Taxes (Q3 / bill_year)", note: "Used for Q3; for Q1 the app also reads previous bill_year for assessed value (see below)." },
+      { id: 14, name: "Layer 14 — Preliminary taxes (Q1 / bill_year)", note: "Used only for fiscal Q1; omitted for Q3 fetches in app." },
+      { id: 13, name: "Layer 13 — Real estate", note: "Fiscal year + quarter when provided." },
+      { id: 15, name: "Layer 15 — Master parcel / children", note: "Optional bill_year filter in app; uses normalized parcel_id." }
+    ];
+
+    const clipIcon =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+
+    function getFiscalYearAndQuarter(d) {
+      const year = d.getFullYear();
+      const month = d.getMonth();
+      if (month < 6) return { year, quarter: "3" };
+      return { year: year + 1, quarter: "1" };
+    }
+
+    function normalizeParcelId(id) {
+      if (id == null || id === "") return "";
+      const digits = String(id).replace(/\D/g, "");
+      return digits.padStart(10, "0").slice(-10);
+    }
+
+    function buildQueryString(params) {
+      const q = new URLSearchParams();
+      for (const [k, v] of Object.entries(params)) {
+        if (v === undefined) continue;
+        q.set(k, v);
+      }
+      return "?" + q.toString();
+    }
+
+    function fullUrl(baseUrl, layerId, pathAndQuery) {
+      return baseUrl + "/" + layerId + pathAndQuery;
+    }
+
+    function toCurl(url) {
+      return "curl -s " + JSON.stringify(url);
+    }
+
+    async function copyText(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    function copyButton(label) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "copy-ic";
+      b.title = "Copy " + label;
+      b.setAttribute("aria-label", "Copy " + label);
+      b.innerHTML = clipIcon;
+      return b;
+    }
+
+    function sectionBlock(parent, label, text, isJson) {
+      const wrap = document.createElement("div");
+      wrap.className = "block";
+      const row = document.createElement("div");
+      row.className = "copy-row";
+      const bar = document.createElement("div");
+      bar.className = "copy-bar";
+      const lab = document.createElement("p");
+      lab.className = "row-label";
+      lab.textContent = label;
+      bar.appendChild(lab);
+      const pre = document.createElement("pre");
+      pre.className = isJson ? "field-pre" : "";
+      pre.textContent = text;
+      bar.appendChild(pre);
+      const btn = copyButton(label);
+      btn.addEventListener("click", () => {
+        void copyText(text);
+        btn.style.color = "var(--ok)";
+        setTimeout(() => (btn.style.color = ""), 400);
+      });
+      row.appendChild(bar);
+      row.appendChild(btn);
+      wrap.appendChild(row);
+      parent.appendChild(wrap);
+    }
+
+    function layerCard({ title, titleLine, subNote, curl, fieldsJson, fetchError, httpStatus }) {
+      const card = document.createElement("article");
+      card.className = "card";
+      const h = document.createElement("h3");
+      h.className = "card-eyebrow";
+      h.textContent = title;
+      card.appendChild(h);
+      if (subNote) {
+        const p = document.createElement("p");
+        p.className = "layer-note card-topnote";
+        p.textContent = subNote;
+        card.appendChild(p);
+      }
+      const meta = document.createElement("p");
+      meta.className = "layer-note card-topnote";
+      meta.textContent = [httpStatus && "HTTP " + httpStatus, fetchError && "Error: " + fetchError].filter(Boolean).join(" · ");
+      if (meta.textContent) card.appendChild(meta);
+      sectionBlock(card, "1. Which layer (name + id)", titleLine, false);
+      sectionBlock(card, "2. Full curl", curl, false);
+      sectionBlock(
+        card,
+        "3. All fields (name, type, alias, length, value per feature)",
+        fieldsJson,
+        true
+      );
+      return card;
+    }
+
+    async function arcgisGet(url) {
+      const r = await fetch(url, { method: "GET" });
+      const t = await r.text();
+      let j = null;
+      try {
+        j = JSON.parse(t);
+      } catch {
+        j = { parseError: true, body: t.slice(0, 4000) };
+      }
+      return { ok: r.ok, status: r.status, json: j, text: t };
+    }
+
+    function geometryValueSummary(geom) {
+      if (geom == null) return null;
+      const s = JSON.stringify(geom);
+      if (s.length > 8000) {
+        return {
+          _note: "Full geometry is large; copy curl output or use DevTools for the complete object.",
+          spatialReference: geom.spatialReference,
+          rings: Array.isArray(geom.rings) ? geom.rings.length + " ring(s)" : undefined
+        };
+      }
+      return geom;
+    }
+
+    function featuresFieldsSummary(json) {
+      if (json == null) return "null";
+      if (json.parseError) return String(json.body || "non-JSON response");
+      if (json.error) {
+        return JSON.stringify(json.error, null, 2);
+      }
+      const fieldList = Array.isArray(json.fields) ? json.fields : [];
+      const defByName = new Map(fieldList.map((d) => [d.name, d]));
+      const orderedNames = fieldList.map((d) => d.name);
+
+      function oneFieldValueRow(feature, fieldName) {
+        const def = defByName.get(fieldName) || {};
+        const attrs = feature && feature.attributes;
+        return {
+          name: fieldName,
+          type: def.type != null ? def.type : "unknown",
+          alias: def.alias,
+          length: def.length,
+          value: attrs && Object.prototype.hasOwnProperty.call(attrs, fieldName) ? attrs[fieldName] : null
+        };
+      }
+
+      function oneFeatureWithFieldRows(feat, index) {
+        const attrs = (feat && feat.attributes) || {};
+        const fromSchema = orderedNames.length ? orderedNames : Object.keys(attrs);
+        const extra = Object.keys(attrs).filter((k) => fromSchema.indexOf(k) === -1);
+        const names = fromSchema.concat(extra);
+        const fieldRows = names.map((n) => oneFieldValueRow(feat, n));
+        const out = {
+          index: index,
+          fields: fieldRows
+        };
+        if (feat && feat.geometry != null) {
+          out.geometry = {
+            name: "geometry",
+            type: json.geometryType != null ? json.geometryType : "esriFeature.geometry",
+            alias: null,
+            length: null,
+            value: geometryValueSummary(feat.geometry)
+          };
+        }
+        return out;
+      }
+
+      const features = json.features;
+      if (!Array.isArray(features) || features.length === 0) {
+        if (fieldList.length > 0) {
+          const onlyDefs = fieldList.map((d) => ({
+            name: d.name,
+            type: d.type,
+            alias: d.alias,
+            length: d.length,
+            value: null
+          }));
+          return JSON.stringify(
+            {
+              noFeatures: true,
+              responseGeometryType: json.geometryType,
+              exceededTransferLimit: json.exceededTransferLimit,
+              fields: onlyDefs
+            },
+            null,
+            2
+          );
+        }
+        return JSON.stringify(
+          {
+            noFeatures: true,
+            responseGeometryType: json.geometryType,
+            exceededTransferLimit: json.exceededTransferLimit,
+            message: "No field schema (fields[]) and no feature rows in this response."
+          },
+          null,
+          2
+        );
+      }
+
+      return JSON.stringify(
+        {
+          featureCount: features.length,
+          responseGeometryType: json.geometryType,
+          spatialReference: json.spatialReference,
+          exceededTransferLimit: json.exceededTransferLimit,
+          features: features.map((f, i) => oneFeatureWithFieldRows(f, i))
+        },
+        null,
+        2
+      );
+    }
+
+    function setDefaultFy() {
+      const { year, quarter } = getFiscalYearAndQuarter(new Date());
+      document.getElementById("fy").value = String(year);
+      document.getElementById("q").value = quarter;
+    }
+
+    setDefaultFy();
+    const fyInput = document.getElementById("fy");
+    if (!fyInput.value) setDefaultFy();
+
+    document.getElementById("defaultFyBtn").addEventListener("click", setDefaultFy);
+
+    function makeRequests({ baseUrl, pid, fy, q, norm }) {
+      const list = [];
+      // 0
+      const q0 = buildQueryString({
+        where: "PID='" + norm + "'",
+        returnGeometry: "true",
+        outFields: "PID",
+        f: "json",
+      });
+      list.push({
+        key: "0",
+        title: "Layer 0 — Geometry",
+        titleLine: "0 — Geometry (MapServer /query on layer 0; WHERE PID)",
+        subNote: LAYERS[0] ? LAYERS[0].note : "",
+        path: q0,
+        layer: 0,
+      });
+
+      // 5
+      const q5 = buildQueryString({
+        where: "Parcel_id='" + norm + "'",
+        outFields: "*",
+        returnGeometry: "false",
+        f: "json",
+      });
+      list.push({ key: "5", title: "Layer 5 — Value history", titleLine: "5 — Value history", subNote: LAYERS[1].note, path: q5, layer: 5 });
+
+      const yq = " AND fiscal_year=" + fy + " AND quarter=" + q;
+      const ownerWhere = "parcel_id='" + norm + "'" + (fy != null && q != null ? yq : "");
+      for (const def of [
+        { layer: 6, t: "Layer 6 — Residential" },
+        { layer: 7, t: "Layer 7 — Current owners" },
+        { layer: 9, t: "Layer 9 — Condo" },
+        { layer: 10, t: "Layer 10 — Outbuildings" },
+      ]) {
+        const qs = buildQueryString({
+          where: ownerWhere,
+          outFields: "*",
+          returnGeometry: "false",
+          f: "json",
+        });
+        const meta = LAYERS.find((l) => l.id === def.layer);
+        const short = meta && meta.name && meta.name.includes(" — ") ? meta.name.split(" — ")[1] : def.t;
+        list.push({
+          key: String(def.layer),
+          title: def.t,
+          titleLine: def.layer + " — " + short,
+          subNote: meta && meta.note,
+          path: qs,
+          layer: def.layer
+        });
+      }
+
+      // 11
+      const q11 = buildQueryString({ where: "parcel_id='" + norm + "'", outFields: "*", returnGeometry: "false", f: "json" });
+      list.push({ key: "11", title: "Layer 11 — Sales", titleLine: "11 — Sales", subNote: LAYERS[6].note, path: q11, layer: 11 });
+
+      if (q === "1") {
+        const m11 = "parcel_id='" + norm + "' AND bill_year=" + (fy - 1);
+        const q12prev = buildQueryString({ where: m11, outFields: "*", returnGeometry: "false", f: "json" });
+        list.push({
+          key: "12-prev",
+          title: "Layer 12 — Taxes (previous bill_year for Q1 assessed value)",
+          titleLine: "12 — Taxes, prior bill year (Q1 app logic)",
+          subNote: "Extra EGISClient call in Q1 to get previous year total_assessed_value from final taxes layer.",
+          path: q12prev,
+          layer: 12,
+        });
+      }
+
+      if (q === "3" || !q) {
+        const tWhere = "parcel_id='" + norm + "' AND bill_year=" + fy;
+        const q12 = buildQueryString({ where: tWhere, outFields: "*", returnGeometry: "false", f: "json" });
+        list.push({ key: "12", title: "Layer 12 — Taxes (Q3)", titleLine: "12 — Taxes", subNote: LAYERS[7].note, path: q12, layer: 12 });
+      } else {
+        const t14 = "parcel_id='" + norm + "' AND bill_year=" + fy;
+        const q14 = buildQueryString({ where: t14, outFields: "*", returnGeometry: "false", f: "json" });
+        list.push({ key: "14", title: "Layer 14 — Preliminary (Q1)", titleLine: "14 — Preliminary taxes", subNote: LAYERS[8].note, path: q14, layer: 14 });
+      }
+
+      // 13
+      const reW = "parcel_id='" + norm + "'" + (fy != null && q != null ? yq : "");
+      const q13 = buildQueryString({ where: reW, outFields: "*", returnGeometry: "false", f: "json" });
+      list.push({ key: "13", title: "Layer 13 — Real estate", titleLine: "13 — Real estate", subNote: LAYERS[9].note, path: q13, layer: 13 });
+
+      // 15
+      const m15 = "parcel_id='" + norm + "' AND bill_year=" + fy;
+      const q15 = buildQueryString({ where: m15, outFields: "*", returnGeometry: "false", f: "json" });
+      list.push({ key: "15", title: "Layer 15 — Master parcel", titleLine: "15 — Master parcel", subNote: LAYERS[10].note, path: q15, layer: 15 });
+
+      for (const item of list) {
+        item.queryUrl = fullUrl(baseUrl, item.layer, "/query" + item.path);
+        item.curl = toCurl(item.queryUrl);
+      }
+      return list;
+    }
+
+    function renderResults(container, results) {
+      container.innerHTML = "";
+      for (const r of results) {
+        const j = r.res && r.res.json;
+        const fields = featuresFieldsSummary(j);
+        const el = layerCard({
+          title: r.def.title,
+          titleLine: r.def.titleLine,
+          subNote: r.def.subNote,
+          curl: r.def.curl,
+          fieldsJson: fields,
+          fetchError: r.err,
+          httpStatus: r.res && r.res.status
+        });
+        container.appendChild(el);
+      }
+    }
+
+    document.getElementById("fetchBtn").addEventListener("click", async () => {
+      const env = document.getElementById("env").value;
+      const baseUrl = BASE[env] || BASE.dev;
+      const parcel = document.getElementById("parcel").value.trim();
+      const norm = normalizeParcelId(parcel);
+      const statusEl = document.getElementById("globalStatus");
+      const out = document.getElementById("results");
+
+      if (!norm) {
+        statusEl.textContent = "Enter a parcel ID (digits; normalized to 10 characters).";
+        statusEl.className = "status err";
+        return;
+      }
+
+      const fy = parseInt(document.getElementById("fy").value, 10);
+      const q = document.getElementById("q").value;
+      if (!Number.isFinite(fy) || (q !== "1" && q !== "3")) {
+        statusEl.textContent = "Set a valid fiscal year and quarter (1 or 3).";
+        statusEl.className = "status err";
+        return;
+      }
+
+      document.getElementById("fetchBtn").disabled = true;
+      statusEl.className = "status";
+      statusEl.textContent = "Fetching " + baseUrl + " (parcel " + norm + ", FY" + fy + " Q" + q + ")…";
+      out.innerHTML = "";
+
+      const defs = makeRequests({ baseUrl, pid: parcel, fy, q, norm: norm });
+      const all = await Promise.all(
+        defs.map(async (def) => {
+          const queryUrl = def.queryUrl;
+          let res = null;
+          let err = null;
+          try {
+            res = await arcgisGet(queryUrl);
+            if (!res.ok) err = "HTTP " + res.status;
+            else if (res.json && res.json.error) err = JSON.stringify(res.json.error);
+          } catch (e) {
+            err = e && e.message ? e.message : String(e);
+            res = null;
+          }
+          return { def, res, err };
+        })
+      );
+
+      let ok = 0;
+      for (const x of all) {
+        if (!x.err) ok += 1;
+      }
+      statusEl.textContent =
+        "Done. " + ok + "/" + all.length + " requests with no error (see per-layer for ArcGIS error objects). Base: " + baseUrl;
+      statusEl.className = "status ok";
+      if (all.some((x) => /Failed to fetch|NetworkError|Load failed|blocked/i.test(String(x.err)))) {
+        statusEl.className = "status err";
+        statusEl.textContent += " — browser fetch failed (CORS or network). Use the copied curl commands in a shell.";
+      }
+
+      renderResults(out, all);
+      document.getElementById("fetchBtn").disabled = false;
+    });
+  </script>
+</body>
+</html>
