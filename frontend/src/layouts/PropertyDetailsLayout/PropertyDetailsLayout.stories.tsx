@@ -171,7 +171,7 @@ export const WithAllSections: Story = {
           totalRooms: 8,
 
           // Bathrooms
-          totalBathrooms: 3,
+          fullBathrooms: 3,
           halfBathrooms: 1,
           bathStyle1: 'Modern',
           bathStyle2: 'Traditional',

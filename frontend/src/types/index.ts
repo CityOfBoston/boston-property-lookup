@@ -141,7 +141,7 @@ export class PropertyDetails implements PropertyDetailsData {
       penthouseUnit?: string;
       orientation?: string;
       bedroomNumber?: string;
-      totalBathrooms?: string;
+      fullBathrooms?: string;
       halfBathrooms?: string;
       bathStyle1?: string;
       bathStyle2?: string;
@@ -186,7 +186,7 @@ export class PropertyDetails implements PropertyDetailsData {
     penthouseUnit?: string;
     orientation?: string;
     bedroomNumber?: string;
-    totalBathrooms?: string;
+    fullBathrooms?: string;
     halfBathrooms?: string;
     bathStyle1?: string;
     bathStyle2?: string;
@@ -301,7 +301,7 @@ export class PropertyDetails implements PropertyDetailsData {
               title: "Rooms",
               content: [
                 {label: "Number of Bedrooms", value: building.bedroomNumber},
-                {label: "Total Bathrooms", value: building.totalBathrooms},
+                {label: "Full Bathrooms", value: building.fullBathrooms},
                 {label: "Half Bathrooms", value: building.halfBathrooms},
                 {label: "Bath Style 1", value: building.bathStyle1},
                 {label: "Bath Style 2", value: building.bathStyle2},
@@ -370,7 +370,7 @@ export class PropertyDetails implements PropertyDetailsData {
               title: "Rooms",
               content: [
                 {label: "Number of Bedrooms", value: data.bedroomNumber},
-                {label: "Total Bathrooms", value: data.totalBathrooms},
+                {label: "Full Bathrooms", value: data.fullBathrooms},
                 {label: "Half Bathrooms", value: data.halfBathrooms},
                 {label: "Bath Style 1", value: data.bathStyle1},
                 {label: "Bath Style 2", value: data.bathStyle2},
@@ -420,7 +420,7 @@ export class PropertyDetails implements PropertyDetailsData {
           title: "Rooms",
           content: [
             {label: "Number of Bedrooms", value: data.bedroomNumber},
-            {label: "Total Bathrooms", value: data.totalBathrooms},
+            {label: "Full Bathrooms", value: data.fullBathrooms},
             {label: "Half Bathrooms", value: data.halfBathrooms},
             {label: "Bath Style 1", value: data.bathStyle1},
             {label: "Bath Style 2", value: data.bathStyle2},

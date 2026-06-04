@@ -1081,7 +1081,7 @@ export const fetchPropertyDetailsByParcelIdHelper = async (
       penthouseUnit: toProperCase(feature.attributes.penthouse_unit),
       orientation: toProperCase(feature.attributes.orientation),
       bedroomNumber: feature.attributes.bedrooms,
-      totalBathrooms: feature.attributes.full_bath,
+      fullBathrooms: feature.attributes.full_bath,
       halfBathrooms: feature.attributes.half_bath,
       otherFixtures: feature.attributes.other_fixtures,
       bathStyle1: toProperCase(parseAfterDash(feature.attributes.bath_style_1)),
@@ -1412,20 +1412,7 @@ export const fetchPropertyDetailsByParcelIdHelper = async (
     bedroomNumber: prioritizeValue(primaryResidentialAttrs.bedrooms, condoAttrs.bedrooms) || undefined,
     bedroomType: condoAttrs.bedroom_type ? toProperCase(parseAfterDash(condoAttrs.bedroom_type)) : undefined, // Condo only
     rooms: condoAttrs.rooms || undefined, // Condo only - total room count
-    totalBathrooms: (() => {
-      const residentialFullBath = primaryResidentialAttrs.full_bath;
-      const residentialHalfBath = primaryResidentialAttrs.half_bath;
-      const condoFullBath = condoAttrs.full_bath;
-      const condoHalfBath = condoAttrs.half_bath;
-
-      const fullBath = prioritizeValue(residentialFullBath, condoFullBath);
-      const halfBath = prioritizeValue(residentialHalfBath, condoHalfBath);
-
-      if (fullBath !== undefined && halfBath !== undefined) {
-        return String(Number(fullBath) + Number(halfBath) * 0.5);
-      }
-      return undefined;
-    })(),
+    fullBathrooms: prioritizeValue(primaryResidentialAttrs.full_bath, condoAttrs.full_bath) || undefined,
     halfBathrooms: prioritizeValue(primaryResidentialAttrs.half_bath, condoAttrs.half_bath) || undefined,
     otherFixtures: prioritizeValue(primaryResidentialAttrs.other_fixtures, condoAttrs.other_fixtures) || undefined,
     bathStyle1: prioritizeValue(toProperCase(parseAfterDash(primaryResidentialAttrs.bath_style_1)), toProperCase(parseAfterDash(condoAttrs.bath_style_1))) || undefined,

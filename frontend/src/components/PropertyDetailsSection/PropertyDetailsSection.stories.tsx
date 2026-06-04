@@ -109,7 +109,7 @@ export const Attributes: Story = {
                 {
                   title: 'Bathrooms',
                   content: [
-                    { label: 'Total Bathrooms', value: '3' },
+                    { label: 'Full Bathrooms', value: '3' },
                     { label: 'Half Bathrooms', value: '1' },
                     { label: 'Bath Style 1', value: 'Modern' },
                     { label: 'Bath Style 2', value: 'Traditional' },

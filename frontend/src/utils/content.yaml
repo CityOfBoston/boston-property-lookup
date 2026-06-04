@@ -154,7 +154,7 @@ components:
         title: "Rooms"
         labels:
           bedroomNumber: "Number of Bedrooms"
-          totalBathrooms: "Total Bathrooms"
+          fullBathrooms: "Full Bathrooms"
           halfBathrooms: "Half Bathrooms"
           bathStyle1: "Bath Style 1"
           bathStyle2: "Bath Style 2"
