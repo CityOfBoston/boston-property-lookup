@@ -1,6 +1,6 @@
 /**
  * Callable cloud function that fetches all child parcels for a master parcel
- * using Layer 15 (Master Parcel Children).
+ * using Layer 15 (Master Parcel lookup). Assessed values are fetched from Layer 12.
  */
 
 import {createCallable, createSuccessResponse} from "../lib/FunctionsClient";
