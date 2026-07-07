@@ -35,7 +35,7 @@ fiscalYears:
       residential: 12.40
       commercial: 26.96
     ownerDisclaimerDates:
-      q1: "April 25, 2026"    # Used July 1, 2026 - December 31, 2026
+      q1: "June 1, 2026"    # Used July 1, 2026 - December 31, 2026
       q3: "October 25, 2026"  # Used January 1, 2027 - June 30, 2027
 
   # FY2026
