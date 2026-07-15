@@ -515,29 +515,38 @@ export function parseAfterDash(value: string | null | undefined | any): string {
 
 /**
  * Helper function to get all parcelId and full address pairings for all properties in Boston.
- * Uses Layer 0 (geometric data layer) which contains address fields.
- * Results can be found in the "features" array with each feature having an "attributes" object.
+ * Uses Layer 13 (Real Estate) for the current fiscal year/quarter so newly created
+ * parcels (not yet present on Layer 0) are included in search.
  *
  * @return A list of objects with parcelId and full address.
  */
 export const fetchAllParcelIdAddressPairingsHelper = async (): Promise<{parcelId: string, fullAddress: string}[]> => {
   console.log("[EGISClient] Starting fetchAllParcelIdAddressPairings");
 
-  const query = "?where=1=1&outFields=*&returnGeometry=false&f=json";
+  const {year, quarter} = getFiscalYearAndQuarter(new Date());
+  const outFields = "parcel_id,fiscal_year,quarter,street_number,street_number_suffix,street_name,apt_unit,city,location_zip_code";
+  const query = `?where=fiscal_year=${year} AND quarter=${quarter}&outFields=${outFields}&returnGeometry=false&f=json`;
+
+  console.log(`[EGISClient] Parcel ID address pairings FY${year} Q${quarter}`);
   console.log(`[EGISClient] Parcel ID address pairings query: ${query}`);
-  console.log(`[EGISClient] Full parcel ID address pairings URL: ${geomertricDataLayerUrl}/query${query}`);
+  console.log(`[EGISClient] Full parcel ID address pairings URL: ${realEstateDataLayerUrl}/query${query}`);
 
-  const features = await fetchEGISData(geomertricDataLayerUrl, query);
+  const features = await fetchEGISData(realEstateDataLayerUrl, query);
 
-  console.log(`[EGISClient] Fetched ${features.length} parcel ID address pairings`);
+  console.log(`[EGISClient] Fetched ${features.length} Layer 13 features for pairings`);
 
-  const result = features.map((feature: ArcGISFeature) => {
-    return {
-      parcelId: feature.attributes.parcel_id,
+  // One pairing per parcel (Layer 13 can theoretically return duplicate parcel rows).
+  const byParcelId = new Map<string, {parcelId: string, fullAddress: string}>();
+  for (const feature of features) {
+    const parcelId = normalizeParcelId(feature.attributes.parcel_id);
+    if (!parcelId || byParcelId.has(parcelId)) continue;
+    byParcelId.set(parcelId, {
+      parcelId,
       fullAddress: constructFullAddress(feature.attributes),
-    };
-  });
+    });
+  }
 
+  const result = Array.from(byParcelId.values());
   console.log(`[EGISClient] fetchAllParcelIdAddressPairings completed. Returning ${result.length} pairings`);
   return result;
 };

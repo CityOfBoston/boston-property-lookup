@@ -1,6 +1,6 @@
 /**
  * HTTP cloud function that generates and stores parcel ID address pairings
- * by fetching from EGIS API and uploading to Firebase storage.
+ * by fetching from EGIS Layer 13 (current fiscal year/quarter) and uploading to Firebase storage.
  */
 
 import {createHttp, sendSuccessResponse, sendErrorResponse} from "../lib/FunctionsClient";
