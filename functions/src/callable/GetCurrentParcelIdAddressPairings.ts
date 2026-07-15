@@ -11,17 +11,17 @@ export const getCurrentParcelIdAddressPairings = createCallable(async () => {
 
   try {
     // Get signed URL for most recent cached file
-    const signedUrl = await getMostRecentParcelIdAddressPairingsUrl();
+    const latest = await getMostRecentParcelIdAddressPairingsUrl();
 
-    if (!signedUrl) {
+    if (!latest) {
       console.log("[GetCurrentParcelIdAddressPairings] No cached files found");
       return createErrorResponse("No cached parcel ID address pairings found", null);
     }
 
-    console.log("[GetCurrentParcelIdAddressPairings] Got signed URL, downloading file");
+    console.log(`[GetCurrentParcelIdAddressPairings] Got signed URL for ${latest.fileName}, downloading file`);
 
     // Download the file on the server side
-    const response = await fetch(signedUrl);
+    const response = await fetch(latest.signedUrl);
 
     if (!response.ok) {
       throw new Error(`Failed to download file: ${response.status} ${response.statusText}`);
@@ -37,7 +37,7 @@ export const getCurrentParcelIdAddressPairings = createCallable(async () => {
 
     return createSuccessResponse({
       compressedData: base64Data,
-      fileName: "parcel-id-address-pairings.json.gz",
+      fileName: latest.fileName,
     }, "Parcel ID address pairings downloaded successfully");
   } catch (error) {
     console.error("[GetCurrentParcelIdAddressPairings] Error:", error);

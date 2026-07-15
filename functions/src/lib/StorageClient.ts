@@ -125,11 +125,14 @@ export const storeParcelIdAddressPairings = async (parcelIdAddressPairings: Arra
 
 /**
  * Get all files in the parcelIdAddressPairingsCacheBucket, determine the most recent file
- * by checking the timestamp in the filename and generate a signed URL for the file.
+ * by GCS timeCreated (with filename timestamp fallback) and generate a signed URL.
  *
- * @return A signed URL for the most recent parcel ID address pairings file, or null if no files exist.
+ * @return Signed URL + file name for the most recent pairings file, or null if none exist.
  */
-export const getMostRecentParcelIdAddressPairingsUrl = async (): Promise<string | null> => {
+export const getMostRecentParcelIdAddressPairingsUrl = async (): Promise<{
+  signedUrl: string;
+  fileName: string;
+} | null> => {
   console.log("[StorageClient] Getting most recent parcel ID address pairings file");
 
   try {
@@ -145,23 +148,39 @@ export const getMostRecentParcelIdAddressPairingsUrl = async (): Promise<string 
 
     console.log(`[StorageClient] Found ${files.length} cached files`);
 
-    // Find the most recent file by parsing timestamps in filenames
-    let mostRecentFile = files[0];
-    let mostRecentTimestamp = new Date(0);
+    // Pick the newest gzipped pairings file. Prefer GCS timeCreated; fall back to
+    // parsing the ISO timestamp embedded in the filename
+    // (parcel-id-address-pairings-YYYY-MM-DDTHH-MM-SS-sssZ.json.gz).
+    const parseFilenameTimestamp = (filename: string): Date | null => {
+      const match = filename.match(
+        /parcel-id-address-pairings-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})-(\d{3})Z\.json\.gz$/
+      );
+      if (!match) return null;
+      const iso = `${match[1]}T${match[2]}:${match[3]}:${match[4]}.${match[5]}Z`;
+      const parsed = new Date(iso);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    };
 
-    for (const file of files) {
-      const filename = file.name;
-      // Extract timestamp from filename: parcel-id-address-pairings-YYYY-MM-DDTHH-MM-SS-sssZ.json.gz
-      const timestampMatch = filename.match(/parcel-id-address-pairings-(.+)\.json\.gz$/);
+    const getFileTimestamp = (file: typeof files[number]): Date => {
+      const created = file.metadata?.timeCreated ? new Date(file.metadata.timeCreated) : null;
+      if (created && !Number.isNaN(created.getTime())) return created;
+      return parseFilenameTimestamp(file.name) ?? new Date(0);
+    };
 
-      if (timestampMatch) {
-        const timestampStr = timestampMatch[1].replace(/-/g, ":").replace(/-/g, ".");
-        const fileTimestamp = new Date(timestampStr);
+    const pairingsFiles = files.filter((file) => file.name.endsWith(".json.gz"));
+    if (pairingsFiles.length === 0) {
+      console.log("[StorageClient] No gzipped pairings files found in bucket");
+      return null;
+    }
 
-        if (fileTimestamp > mostRecentTimestamp) {
-          mostRecentTimestamp = fileTimestamp;
-          mostRecentFile = file;
-        }
+    let mostRecentFile = pairingsFiles[0];
+    let mostRecentTimestamp = getFileTimestamp(mostRecentFile);
+
+    for (const file of pairingsFiles.slice(1)) {
+      const fileTimestamp = getFileTimestamp(file);
+      if (fileTimestamp > mostRecentTimestamp) {
+        mostRecentTimestamp = fileTimestamp;
+        mostRecentFile = file;
       }
     }
 
@@ -174,7 +193,7 @@ export const getMostRecentParcelIdAddressPairingsUrl = async (): Promise<string 
     });
 
     console.log(`[StorageClient] Generated signed URL for ${mostRecentFile.name}`);
-    return signedUrl;
+    return {signedUrl, fileName: mostRecentFile.name};
   } catch (error) {
     console.error("[StorageClient] Error getting most recent parcel ID address pairings URL:", error);
     throw error;

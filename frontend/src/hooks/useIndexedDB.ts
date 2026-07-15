@@ -10,8 +10,11 @@ interface CachedPairings {
 }
 
 const DB_NAME = 'AssessingPropertiesDB';
-const DB_VERSION = 1;
+// Bump when pairings schema/source changes so clients discard stale year-long caches.
+const DB_VERSION = 2;
 const STORE_NAME = 'parcelIdAddressPairings';
+/** Re-fetch pairings at least this often so mid-year regenerations are picked up. */
+const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 class IndexedDBService {
   private db: IDBDatabase | null = null;
@@ -28,12 +31,13 @@ class IndexedDBService {
 
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
-        
-        // Create object store if it doesn't exist
-        if (!db.objectStoreNames.contains(STORE_NAME)) {
-          const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-          store.createIndex('year', 'year', { unique: false });
+
+        // Drop and recreate so schema bumps clear stale pairings (e.g. Layer 0 → Layer 13).
+        if (db.objectStoreNames.contains(STORE_NAME)) {
+          db.deleteObjectStore(STORE_NAME);
         }
+        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+        store.createIndex('year', 'year', { unique: false });
       };
     });
   }
@@ -76,7 +80,12 @@ class IndexedDBService {
     if (!cached) return false;
 
     const currentYear = new Date().getFullYear();
-    return cached.year === currentYear;
+    if (cached.year !== currentYear) return false;
+
+    const cachedAt = Date.parse(cached.timestamp);
+    if (Number.isNaN(cachedAt)) return false;
+
+    return Date.now() - cachedAt < CACHE_MAX_AGE_MS;
   }
 
   async clearCache(): Promise<void> {
