@@ -115,11 +115,19 @@ export function createHttp(
         console.log(`[HttpFunction] Method: ${req.method}`);
         console.log("[HttpFunction] Headers:", req.headers);
 
+        // Auth used to send 401/403 and return from the helper only; this function
+        // still ran the handler (pairings generate, etc.). Stop here on denial.
         if (accessLevel === "internal" || accessLevel === "private") {
-          await validateApiKey(req, res);
+          const apiKeyOk = await validateApiKey(req, res);
+          if (!apiKeyOk) {
+            return;
+          }
         }
         if (accessLevel === "private") {
-          await validateIpAddress(req, res);
+          const ipOk = await validateIpAddress(req, res);
+          if (!ipOk) {
+            return;
+          }
         }
 
         await handler(req, res);
@@ -226,8 +234,9 @@ const secretManagerClient = new SecretManagerServiceClient();
  * address and determine if it is allowed.
  * @param {Request} request - The request object.
  * @param {Response} res - The response object.
+ * @return {Promise<boolean>} false if denied (response already sent).
  */
-const validateIpAddress = async (request: Request, res: Response) => {
+const validateIpAddress = async (request: Request, res: Response): Promise<boolean> => {
   const clientIp = request.headers["x-forwarded-for"] ||
         request.connection.remoteAddress || "";
   const [version] = await secretManagerClient.accessSecretVersion({
@@ -239,8 +248,9 @@ const validateIpAddress = async (request: Request, res: Response) => {
   if (!allowedIPs?.some((allowedIp: string) =>
     (clientIp as string).startsWith(allowedIp.split("/")[0]))) {
     sendErrorResponse(res, "Access denied: IP not allowed", 403);
-    return;
+    return false;
   }
+  return true;
 };
 
 /**
@@ -249,8 +259,9 @@ const validateIpAddress = async (request: Request, res: Response) => {
  * GCP Secret Manager.`
  * @param {Request} request - The request object.
  * @param {Response} res - The response object.
+ * @return {Promise<boolean>} false if denied (response already sent).
  */
-const validateApiKey = async (request: Request, res: Response) => {
+const validateApiKey = async (request: Request, res: Response): Promise<boolean> => {
   const authHeader = request.headers.authorization || "";
   const token = authHeader.split(" ")[1];
   const [version] = await secretManagerClient.accessSecretVersion({
@@ -260,6 +271,9 @@ const validateApiKey = async (request: Request, res: Response) => {
   const externalAPIToken = version.payload?.data?.toString();
   if (token !== externalAPIToken) {
     sendErrorResponse(res, "Unauthorized API key", 401);
-    return;
+    // Returning false is required: a bare `return` used to only exit this helper,
+    // and createHttp still invoked the handler (e.g. generate pairings).
+    return false;
   }
+  return true;
 };

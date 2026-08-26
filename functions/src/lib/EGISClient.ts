@@ -162,8 +162,9 @@ interface ArcGISFeature {
 
 // Response type for EGIS API queries, transfer limit as buffer
 type EGISQueryResponse = {
-    features: ArcGISFeature[];
+    features?: ArcGISFeature[];
     exceededTransferLimit?: boolean;
+    error?: {code?: number; message?: string};
 }
 
 /** Normalize parcel ID to 10-digit string so Layer 15 lookups match regardless of leading zeros or number type. */
@@ -251,6 +252,14 @@ const fetchEGISData = async (url: string, query: string): Promise<ArcGISFeature[
           response = await fetch(fullUrl);
           if (response.ok) {
             data = await response.json() as EGISQueryResponse;
+            // ArcGIS often returns HTTP 200 with `{ error: ... }` and no features.
+            // Treating that as success used to end pagination early and store a
+            // partial pairings file (e.g. 8k–9k instead of ~185k).
+            if (data.error) {
+              throw new Error(
+                `EGIS denied/error response: ${data.error.message || JSON.stringify(data.error)}`
+              );
+            }
             break;
           }
           retryCount++;
@@ -263,13 +272,22 @@ const fetchEGISData = async (url: string, query: string): Promise<ArcGISFeature[
         }
       }
 
-      if (!response?.ok || !data) {
+      if (!response?.ok || !data || data.error) {
         throw new Error(`Failed to fetch data after ${maxRetries} retries`);
       }
 
       const features = data.features || [];
       if (features.length === 0) {
-        break; // No more data to fetch
+        // Empty first page can be a real zero-result query. An empty later page
+        // after we were still paging (resultOffset > 0) is a failed/denied fetch,
+        // not end-of-data — abort so callers do not store truncated pairings.
+        if (resultOffset > 0) {
+          throw new Error(
+            `EGIS pagination stopped unexpectedly at offset ${resultOffset} ` +
+            `(already fetched ${allFeatures.length} features)`
+          );
+        }
+        break;
       }
 
       // Process features in smaller batches to avoid memory issues
