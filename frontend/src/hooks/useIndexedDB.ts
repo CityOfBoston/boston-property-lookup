@@ -10,8 +10,9 @@ interface CachedPairings {
 }
 
 const DB_NAME = 'AssessingPropertiesDB';
-// Bump when pairings schema/source changes so clients discard stale year-long caches.
-const DB_VERSION = 2;
+// Bump when pairings schema/source changes so clients discard stale caches.
+// v3: drop the truncated 8k/9k pairings file served on 2026-08-26.
+const DB_VERSION = 3;
 const STORE_NAME = 'parcelIdAddressPairings';
 /** Re-fetch pairings at least this often so mid-year regenerations are picked up. */
 const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
